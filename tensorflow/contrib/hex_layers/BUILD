@@ -20,8 +20,9 @@ load("//tensorflow:tensorflow.bzl", "tf_cc_test")
 tf_custom_op_library(
     name = "python/ops/_zero_out.so",
     srcs = [
-        "kernels/zero_out.cc",
-        "ops/zero_out.cc",
+        "kernels/kernel_example.cc",
+        "kernels/kernel_example.cu.cc",
+        "ops/zero_out.cc"
     ],
     deps = [
         "//tensorflow/core/kernels:bounds_check_lib",
@@ -30,7 +31,11 @@ tf_custom_op_library(
 
 tf_kernel_library(
     name = "hex_layers_kernels",
-    srcs = ["kernels/zero_out.cc"],
+    srcs = [
+        "kernels/kernel_example.cc",
+        "kernels/kernel_example.cu.cc"
+        # "kernels/zero_out.cc"
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//tensorflow/core:framework",

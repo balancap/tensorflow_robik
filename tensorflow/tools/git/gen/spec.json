@@ -1,3 +1,5 @@
 {
-  "git": false
+  "git": true,
+  "path": "/home/paul/Development/robik.ai/tensorflow",
+  "branch": "refs/heads/hexnet"
 }
