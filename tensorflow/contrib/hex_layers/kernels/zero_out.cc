@@ -29,3 +29,4 @@ class ZeroOutOp : public OpKernel {
 };
 
 REGISTER_KERNEL_BUILDER(Name("ZeroOut").Device(DEVICE_CPU), ZeroOutOp)
+

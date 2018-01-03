@@ -10,3 +10,4 @@ REGISTER_OP("ZeroOut")
       c->set_output(0, c->input(0));
       return Status::OK();
     });
+
