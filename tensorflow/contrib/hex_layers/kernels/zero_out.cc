@@ -1,6 +1,6 @@
 #include "tensorflow/core/framework/op_kernel.h"
 
-using namespace tensorflow;
+namespace tensorflow {
 
 class ZeroOutOp : public OpKernel {
  public:
@@ -30,3 +30,4 @@ class ZeroOutOp : public OpKernel {
 
 REGISTER_KERNEL_BUILDER(Name("ZeroOut").Device(DEVICE_CPU), ZeroOutOp)
 
+}  // namespace tensorflow

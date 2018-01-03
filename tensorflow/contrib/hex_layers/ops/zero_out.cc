@@ -1,7 +1,7 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
-using namespace tensorflow;
+namespace tensorflow {
 
 REGISTER_OP("ZeroOut")
     .Input("to_zero: int32")
@@ -11,3 +11,4 @@ REGISTER_OP("ZeroOut")
       return Status::OK();
     });
 
+}  // namespace tensorflow
