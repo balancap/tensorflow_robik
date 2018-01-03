@@ -18,7 +18,7 @@ load("//tensorflow:tensorflow.bzl", "tf_custom_op_py_library")
 load("//tensorflow:tensorflow.bzl", "tf_cc_test")
 
 tf_custom_op_library(
-    name = "python/ops/_hex_layers_ops.so",
+    name = "python/ops/_zero_out.so",
     srcs = [
         "kernels/zero_out.cc",
         "ops/zero_out.cc",
