@@ -17,6 +17,8 @@ struct ExampleFunctor<CPUDevice, T> {
   }
 };
 
+// extern template struct ExampleFunctor<Eigen::GpuDevice, float>;
+
 // OpKernel definition.
 // template parameter <T> is the datatype of the tensors.
 template <typename Device, typename T>
@@ -56,7 +58,8 @@ REGISTER_CPU(int32);
 #ifdef GOOGLE_CUDA
 #define REGISTER_GPU(T)                                          \
   /* Declare explicit instantiations in kernel_example.cu.cc. */ \
-  extern template ExampleFunctor<GPUDevice, float>;              \
+  extern template struct ExampleFunctor<GPUDevice, float>;       \
+  extern template struct ExampleFunctor<GPUDevice, int32>;       \
   REGISTER_KERNEL_BUILDER(                                       \
       Name("Example").Device(DEVICE_GPU).TypeConstraint<T>("T"), \
       ExampleOp<GPUDevice, T>);

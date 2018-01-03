@@ -21,8 +21,11 @@ tf_custom_op_library(
     name = "python/ops/_zero_out.so",
     srcs = [
         "kernels/kernel_example.cc",
-        "kernels/kernel_example.cu.cc",
+        "kernels/kernel_example.h",
         "ops/zero_out.cc"
+    ],
+    gpu_srcs = [
+        "kernels/kernel_example.cu.cc",
     ],
     deps = [
         "//tensorflow/core/kernels:bounds_check_lib",
@@ -33,8 +36,15 @@ tf_kernel_library(
     name = "hex_layers_kernels",
     srcs = [
         "kernels/kernel_example.cc",
-        "kernels/kernel_example.cu.cc"
+        # "kernels/kernel_example.cu.cc",
         # "kernels/zero_out.cc"
+    ],
+    hdrs = [
+        "kernels/kernel_example.h",
+    ],
+    gpu_srcs = [
+        "kernels/kernel_example.h",
+        "kernels/kernel_example.cu.cc",
     ],
     visibility = ["//visibility:public"],
     deps = [

@@ -6,6 +6,7 @@
 
 using namespace tensorflow;
 
+using CPUDevice = Eigen::ThreadPoolDevice;
 using GPUDevice = Eigen::GpuDevice;
 
 // Define the CUDA kernel.
@@ -19,7 +20,8 @@ __global__ void ExampleCudaKernel(const int size, const T* in, T* out) {
 
 // Define the GPU implementation that launches the CUDA kernel.
 template <typename T>
-void ExampleFunctor<GPUDevice, T>::operator()(
+struct ExampleFunctor<GPUDevice, T> {
+void operator()(
     const GPUDevice& d, int size, const T* in, T* out) {
   // Launch the cuda kernel.
   //
@@ -30,10 +32,10 @@ void ExampleFunctor<GPUDevice, T>::operator()(
   ExampleCudaKernel<T>
       <<<block_count, thread_per_block, 0, d.stream()>>>(size, in, out);
 }
+};
 
 // Explicitly instantiate functors for the types of OpKernels registered.
 template struct ExampleFunctor<GPUDevice, float>;
 template struct ExampleFunctor<GPUDevice, int32>;
 
 #endif  // GOOGLE_CUDA
-
