@@ -46,6 +46,7 @@ load(
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda")
 
 
+# --------------------------------------------------------------------------
 tf_custom_op_library(
     name = "python/ops/_zero_out.so",
     srcs = [
@@ -65,8 +66,6 @@ tf_kernel_library(
     name = "hex_layers_kernels",
     srcs = [
         "kernels/kernel_example.cc",
-        # "kernels/kernel_example.cu.cc",
-        # "kernels/zero_out.cc"
     ],
     hdrs = [
         "kernels/kernel_example.h",
@@ -82,6 +81,24 @@ tf_kernel_library(
         "//tensorflow/core:lib_internal",
         "//tensorflow/core:stream_executor",
         "//tensorflow/core/kernels:bounds_check_lib",
+        "//third_party/eigen3",
+    ],
+)
+
+# --------------------------------------------------------------------------
+tf_custom_op_library(
+    name = "python/ops/_hex_nn_ops.so",
+    srcs = [
+        "kernels/hex_depthwise_conv_op.cc",
+        "kernels/hex_depthwise_conv_op.h",
+        "ops/hex_nn_ops.cc",
+    ],
+    deps = [
+        ":hex_depthwise_convolution",
+        "//tensorflow/core/kernels:ops_util",
+        "//tensorflow/core/kernels:conv_ops",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
         "//third_party/eigen3",
     ],
 )
@@ -115,51 +132,80 @@ tf_kernel_library(
 )
 
 tf_gen_op_libs(
-    op_lib_names = ["hex_layers_ops"],
+    op_lib_names = ["hex_nn_ops"],
     deps = [
         "//tensorflow/core:lib",
     ],
 )
+tf_gen_op_wrapper_py(
+    name = "hex_nn_ops",
+    deps = [":hex_nn_ops_op_lib"],
+)
 
-# tf_gen_op_wrapper_py(
-#     name = "cudnn_rnn_ops",
-#     deps = [":cudnn_rnn_ops_op_lib"],
-# )
+tf_custom_op_py_library(
+    name = "hex_nn_py",
+    srcs = [
+        "__init__.py",
+        "python/ops/hex_nn_ops.py",
+        # "python/layers/__init__.py",
+        # "python/layers/cudnn_rnn.py",
+    ],
+    dso = [
+        ":python/ops/_hex_nn_ops.so",
+    ],
+    kernels = [
+        ":hex_depthwise_convolution",
+        ":hex_nn_ops_op_lib",
+    ],
+    srcs_version = "PY2AND3",
+    visibility = ["//visibility:public"],
+    deps = [
+        # ":hex_nn_ops_op_lib",
+        "//tensorflow/contrib/util:util_py",
+        "//tensorflow/python:array_ops",
+        "//tensorflow/python:control_flow_ops",
+        "//tensorflow/python:framework",
+        "//tensorflow/python:framework_for_generated_wrappers",
+        "//tensorflow/python:init_ops",
+        "//tensorflow/python:layers_base",
+        "//tensorflow/python:platform",
+        "//tensorflow/python:state_ops",
+        "//tensorflow/python:training",
+        "//tensorflow/python:util",
+        "//tensorflow/python:variable_scope",
+    ],
+)
 
-# tf_custom_op_py_library(
-#     name = "cudnn_rnn_py",
-#     srcs = [
-#         "__init__.py",
-#         "python/layers/__init__.py",
-#         "python/layers/cudnn_rnn.py",
-#         "python/ops/cudnn_rnn_ops.py",
-#     ],
-#     dso = [
-#         ":python/ops/_cudnn_rnn_ops.so",
-#     ],
-#     kernels = [
-#         ":cudnn_rnn_kernels",
-#         ":cudnn_rnn_ops_op_lib",
-#     ],
-#     srcs_version = "PY2AND3",
-#     visibility = ["//visibility:public"],
+# tf_kernel_library(
+#     name = "depthwise_conv_op",
+#     prefix = "depthwise_conv_op",
 #     deps = [
-#         ":cudnn_rnn_ops",
-#         "//tensorflow/contrib/util:util_py",
-#         "//tensorflow/python:array_ops",
-#         "//tensorflow/python:control_flow_ops",
-#         "//tensorflow/python:framework",
-#         "//tensorflow/python:framework_for_generated_wrappers",
-#         "//tensorflow/python:init_ops",
-#         "//tensorflow/python:layers_base",
-#         "//tensorflow/python:platform",
-#         "//tensorflow/python:state_ops",
-#         "//tensorflow/python:training",
-#         "//tensorflow/python:util",
-#         "//tensorflow/python:variable_scope",
+#         ":bounds_check",
+#         ":conv_ops",
+#         ":ops_util",
+#         "//tensorflow/core:core_cpu",
+#         "//tensorflow/core:framework",
+#         "//tensorflow/core:lib",
+#         "//tensorflow/core:nn_ops_op_lib",
+#     ] + if_cuda(["@cub_archive//:cub"]),
+# )
+# tf_kernel_library(
+#     name = "depthwise_conv_grad_op",
+#     hdrs = [
+#         "depthwise_conv_op.h",
+#     ],
+#     prefix = "depthwise_conv_grad_op",
+#     deps = [
+#         ":bounds_check",
+#         ":ops_util",
+#         "//tensorflow/core:core_cpu",
+#         "//tensorflow/core:framework",
+#         "//tensorflow/core:lib",
+#         "//tensorflow/core:nn_ops_op_lib",
 #     ],
 # )
 
+# --------------------------------------------------------------------------
 # cuda_py_test(
 #     name = "cudnn_rnn_ops_test",
 #     size = "large",
