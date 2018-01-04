@@ -26,7 +26,10 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/kernels/bounds_check.h"
-#include "tensorflow/core/kernels/depthwise_conv_op.h"
+
+// #include "tensorflow/core/kernels/depthwise_conv_op.h"
+#include "hex_depthwise_conv_op.h"
+
 #include "tensorflow/core/kernels/ops_util.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/logging.h"
@@ -140,7 +143,7 @@ typedef Eigen::GpuDevice GPUDevice;
   args.out_rows = out_rows;                                                    \
   args.out_cols = out_cols;                                                    \
   args.out_depth = out_depth;                                                  \
-  VLOG(2) << "DepthwiseConv2d: " << label << " Input: [" << batch << ", "      \
+  VLOG(2) << "HexDepthwiseConv2D: " << label << " Input: [" << batch << ", "      \
           << input_rows << ", " << input_cols << ", " << in_depth              \
           << "]; Filter: [" << filter_rows << ", " << filter_cols << ", "      \
           << in_depth << ", " << depth_multiplier << "]; stride = " << stride  \
@@ -392,7 +395,7 @@ struct LaunchHexDepthwiseConvBackpropInputOp<CPUDevice, T> {
                                                padded_filter_inner_dim_size}),
                                   &padded_filter));
       // Write out padded filter.
-      functor::DepthwiseFilterPadOp<T>()(
+      functor::HexDepthwiseFilterPadOp<T>()(
           args, depthwise_filter, padded_filter.template flat<T>().data());
     }
     const T* filter_data =
@@ -520,9 +523,9 @@ extern template struct LaunchHexDepthwiseConvBackpropInputOp<GPUDevice, double>;
 
 // Kernel to compute the input backprop for depthwise convolution.
 template <typename Device, class T>
-class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
+class HexDepthwiseConv2DNativeBackpropInputOp : public OpKernel {
  public:
-  explicit DepthwiseConv2dNativeBackpropInputOp(OpKernelConstruction* context)
+  explicit HexDepthwiseConv2DNativeBackpropInputOp(OpKernelConstruction* context)
       : OpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("strides", &strides_));
     OP_REQUIRES(context, strides_.size() == 4,
@@ -567,7 +570,7 @@ class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
       input_shape.AddDim(in_sizes_data[i]);
     }
     const TensorShape& filter_shape = filter.shape();
-    EXTRACT_AND_VERIFY_DIMENSIONS("DepthwiseConv2DBackpropInput");
+    EXTRACT_AND_VERIFY_DIMENSIONS("HexDepthwiseConv2DBackpropInput");
     Tensor* in_backprop = nullptr;
     OP_REQUIRES_OK(context, context->forward_input_or_allocate_output(
                                 {0}, 0, input_shape, &in_backprop));
@@ -589,31 +592,31 @@ class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
   TensorFormat data_format_;
   int64 stride_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(DepthwiseConv2dNativeBackpropInputOp);
+  TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2DNativeBackpropInputOp);
 };
 
 #define REGISTER_CPU_KERNEL(T)                                       \
-  REGISTER_KERNEL_BUILDER(Name("DepthwiseConv2dNativeBackpropInput") \
+  REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2DNativeBackpropInput") \
                               .Device(DEVICE_CPU)                    \
                               .TypeConstraint<T>("T"),               \
-                          DepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
+                          HexDepthwiseConv2DNativeBackpropInputOp<CPUDevice, T>);
 TF_CALL_float(REGISTER_CPU_KERNEL);
 TF_CALL_double(REGISTER_CPU_KERNEL);
 #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
-REGISTER_KERNEL_BUILDER(Name("DepthwiseConv2dNativeBackpropInput")
+REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2DNativeBackpropInput")
                             .Device(DEVICE_GPU)
                             .TypeConstraint<float>("T")
                             .HostMemory("input_sizes"),
-                        DepthwiseConv2dNativeBackpropInputOp<GPUDevice, float>);
+                        HexDepthwiseConv2DNativeBackpropInputOp<GPUDevice, float>);
 
 REGISTER_KERNEL_BUILDER(
-    Name("DepthwiseConv2dNativeBackpropInput")
+    Name("HexDepthwiseConv2DNativeBackpropInput")
         .Device(DEVICE_GPU)
         .TypeConstraint<double>("T")
         .HostMemory("input_sizes"),
-    DepthwiseConv2dNativeBackpropInputOp<GPUDevice, double>);
+    HexDepthwiseConv2DNativeBackpropInputOp<GPUDevice, double>);
 #endif  // GOOGLE_CUDA
 
 // Kernels to compute the gradients of the filters for depthwise convolution.
@@ -838,7 +841,7 @@ struct LaunchHexDepthwiseConvBackpropFilterOp<CPUDevice, T> {
 };
 
 template <typename T>
-static void DepthwiseConvBackpropFilterReference(const HexDepthwiseArgs& args,
+static void HexDepthwiseConvBackpropFilterReference(const HexDepthwiseArgs& args,
                                                  const T* out_backprop,
                                                  const T* input,
                                                  T* filter_backprop) {
@@ -896,9 +899,9 @@ extern template struct LaunchHexDepthwiseConvBackpropFilterOp<GPUDevice, double>
 
 // Kernel to compute the filter backprop for depthwise convolution.
 template <typename Device, class T>
-class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
+class HexDepthwiseConv2DNativeBackpropFilterOp : public OpKernel {
  public:
-  explicit DepthwiseConv2dNativeBackpropFilterOp(OpKernelConstruction* context)
+  explicit HexDepthwiseConv2DNativeBackpropFilterOp(OpKernelConstruction* context)
       : OpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("strides", &strides_));
     OP_REQUIRES(context, strides_.size() == 4,
@@ -944,7 +947,7 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
     }
     const TensorShape& input_shape = input.shape();
 
-    EXTRACT_AND_VERIFY_DIMENSIONS("DepthwiseConv2DBackpropFilter");
+    EXTRACT_AND_VERIFY_DIMENSIONS("HexDepthwiseConv2DBackpropFilter");
     Tensor* filter_backprop = nullptr;
     OP_REQUIRES_OK(context, context->forward_input_or_allocate_output(
                                 {1}, 0, filter_shape, &filter_backprop));
@@ -967,33 +970,33 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
   TensorFormat data_format_;
   int64 stride_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(DepthwiseConv2dNativeBackpropFilterOp);
+  TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2DNativeBackpropFilterOp);
 };
 
 #define REGISTER_CPU_KERNEL(T)                    \
   REGISTER_KERNEL_BUILDER(                        \
-      Name("DepthwiseConv2dNativeBackpropFilter") \
+      Name("HexDepthwiseConv2DNativeBackpropFilter") \
           .Device(DEVICE_CPU)                     \
           .TypeConstraint<T>("T"),                \
-      DepthwiseConv2dNativeBackpropFilterOp<CPUDevice, T>);
+      HexDepthwiseConv2DNativeBackpropFilterOp<CPUDevice, T>);
 TF_CALL_float(REGISTER_CPU_KERNEL);
 TF_CALL_double(REGISTER_CPU_KERNEL);
 #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(
-    Name("DepthwiseConv2dNativeBackpropFilter")
+    Name("HexDepthwiseConv2DNativeBackpropFilter")
         .Device(DEVICE_GPU)
         .TypeConstraint<float>("T")
         .HostMemory("filter_sizes"),
-    DepthwiseConv2dNativeBackpropFilterOp<GPUDevice, float>);
+    HexDepthwiseConv2DNativeBackpropFilterOp<GPUDevice, float>);
 
 REGISTER_KERNEL_BUILDER(
-    Name("DepthwiseConv2dNativeBackpropFilter")
+    Name("HexDepthwiseConv2DNativeBackpropFilter")
         .Device(DEVICE_GPU)
         .TypeConstraint<double>("T")
         .HostMemory("filter_sizes"),
-    DepthwiseConv2dNativeBackpropFilterOp<GPUDevice, double>);
+    HexDepthwiseConv2DNativeBackpropFilterOp<GPUDevice, double>);
 #endif  // GOOGLE_CUDA
 
 }  // namespace tensorflow

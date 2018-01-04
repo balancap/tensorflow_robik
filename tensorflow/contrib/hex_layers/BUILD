@@ -9,6 +9,22 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
+load(
+    "//tensorflow:tensorflow.bzl",
+    "if_android",
+    "tf_cc_test",
+    "tf_cc_tests",
+    "tf_cc_binary",
+    "tf_copts",
+    "tf_cuda_library",
+    "tf_opts_nortti_if_android",
+    "tf_kernel_library",
+    "tf_mkl_kernel_library",
+    "cc_header_only_library",
+    "if_not_windows",
+)
+load("@local_config_sycl//sycl:build_defs.bzl", "if_sycl")
+
 load("//tensorflow:tensorflow.bzl", "tf_custom_op_library")
 load("//tensorflow:tensorflow.bzl", "tf_gen_op_libs")
 load("//tensorflow:tensorflow.bzl", "tf_gen_op_wrapper_py")
@@ -16,6 +32,19 @@ load("//tensorflow:tensorflow.bzl", "tf_kernel_library")
 load("//tensorflow:tensorflow.bzl", "cuda_py_test")
 load("//tensorflow:tensorflow.bzl", "tf_custom_op_py_library")
 load("//tensorflow:tensorflow.bzl", "tf_cc_test")
+load("//tensorflow:tensorflow.bzl", "tf_cuda_cc_test")
+load("//tensorflow:tensorflow.bzl", "tf_cuda_cc_tests")
+load(
+    "//tensorflow/core:platform/default/build_config.bzl",
+    "tf_proto_library",
+    "tf_kernel_tests_linkstatic",
+)
+load(
+    "//third_party/mkl:build_defs.bzl",
+    "if_mkl",
+)
+load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda")
+
 
 tf_custom_op_library(
     name = "python/ops/_zero_out.so",
@@ -55,6 +84,34 @@ tf_kernel_library(
         "//tensorflow/core/kernels:bounds_check_lib",
         "//third_party/eigen3",
     ],
+)
+
+tf_kernel_library(
+    name = "hex_depthwise_convolution",
+    srcs = [
+        "kernels/hex_depthwise_conv_op.cc",
+        "kernels/hex_depthwise_conv_grad_op.cc",
+    ],
+    hdrs = [
+        "kernels/hex_depthwise_conv_op.h",
+    ],
+    gpu_srcs = [
+        "kernels/hex_depthwise_conv_op.h",
+        "kernels/hex_depthwise_conv_op_gpu.cu.cc",
+    ],
+    deps = [
+        "//tensorflow/core/kernels:bounds_check",
+        "//tensorflow/core/kernels:ops_util",
+        "//tensorflow/core/kernels:conv_2d",
+        "//tensorflow/core/kernels:conv_3d",
+        "//tensorflow/core/kernels:conv_ops",
+        "//tensorflow/core/kernels:eigen_helpers",
+        "//tensorflow/core:core_cpu",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:nn_ops_op_lib",
+        "//third_party/eigen3",
+    ] + if_cuda(["@cub_archive//:cub"]),
 )
 
 tf_gen_op_libs(

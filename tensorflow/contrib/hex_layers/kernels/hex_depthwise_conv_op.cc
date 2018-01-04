@@ -28,7 +28,10 @@ limitations under the License.
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/kernels/bounds_check.h"
 #include "tensorflow/core/kernels/conv_ops.h"
-#include "tensorflow/core/kernels/depthwise_conv_op.h"
+
+// #include "tensorflow/core/kernels/depthwise_conv_op.h"
+#include "hex_depthwise_conv_op.h"
+
 #include "tensorflow/core/kernels/ops_util.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/logging.h"
@@ -77,7 +80,7 @@ typedef Eigen::GpuDevice GPUDevice;
 //
 // TODO(andydavis) Experiment with processing multiple inputs per input buffer.
 template <typename T>
-struct DepthwiseConv2DKernel {
+struct HexDepthwiseConv2DKernel {
   static void Run(const HexDepthwiseArgs& args,
                   const int64 padded_filter_inner_dim_size, const int64 out_r,
                   const int64 out_c, const T* filter, const T* input_buffer,
@@ -142,7 +145,7 @@ struct DepthwiseConv2DKernel {
 // the result in 'output'. This implementation trades off copying small patches
 // of the input to achieve better data alignment, which enables vectorized
 // load/store and multiply-add operations (see comments at InputBufferCopyOp and
-// DepthwiseConv2DKernel for details).
+// HexDepthwiseConv2DKernel for details).
 //
 // TODO(andydavis) Evaluate the performance of processing multiple input
 // patches in the inner loop.
@@ -176,7 +179,7 @@ struct LaunchHexDepthwiseConvOp<CPUDevice, T> {
                                                padded_filter_inner_dim_size}),
                                   &padded_filter));
       // Write out padded filter.
-      functor::DepthwiseFilterPadOp<T>()(
+      functor::HexDepthwiseFilterPadOp<T>()(
           args, depthwise_filter, padded_filter.template flat<T>().data());
     }
     const T* filter_data =
@@ -217,7 +220,7 @@ struct LaunchHexDepthwiseConvOp<CPUDevice, T> {
                                              input_buffer_data);
 
           // Process buffered input across all filters and store to output.
-          DepthwiseConv2DKernel<T>::Run(
+          HexDepthwiseConv2DKernel<T>::Run(
               args, padded_filter_inner_dim_size, out_r, out_c, filter_data,
               input_buffer_data, output + out_base, data_format);
         }
@@ -256,9 +259,9 @@ extern template class LaunchConv2DOp<GPUDevice, float>;
 #endif
 
 template <typename Device, typename T>
-class DepthwiseConv2dNativeOp : public BinaryOp<T> {
+class HexDepthwiseConv2DNativeOp : public BinaryOp<T> {
  public:
-  explicit DepthwiseConv2dNativeOp(OpKernelConstruction* context)
+  explicit HexDepthwiseConv2DNativeOp(OpKernelConstruction* context)
       : BinaryOp<T>(context) {
     OP_REQUIRES_OK(context, context->GetAttr("strides", &strides_));
     string data_format;
@@ -357,7 +360,7 @@ class DepthwiseConv2dNativeOp : public BinaryOp<T> {
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
 
-    VLOG(2) << "DepthwiseConv2dNative: "
+    VLOG(2) << "HexDepthwiseConv2DNative: "
             << " Input: [" << batch << ", " << input_rows << ", " << input_cols
             << ", " << in_depth << "]; Filter: [" << filter_rows << ", "
             << filter_cols << ", " << in_depth << ", " << depth_multiplier
@@ -415,13 +418,13 @@ class DepthwiseConv2dNativeOp : public BinaryOp<T> {
   bool use_cudnn_;
   bool cudnn_use_autotune_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(DepthwiseConv2dNativeOp);
+  TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2DNativeOp);
 };
 
 #define REGISTER_CPU_KERNEL(T)                                                 \
   REGISTER_KERNEL_BUILDER(                                                     \
-      Name("DepthwiseConv2dNative").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
-      DepthwiseConv2dNativeOp<CPUDevice, T>);
+      Name("HexDepthwiseConv2DNative").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
+      HexDepthwiseConv2DNativeOp<CPUDevice, T>);
 
 TF_CALL_half(REGISTER_CPU_KERNEL);
 TF_CALL_float(REGISTER_CPU_KERNEL);
@@ -431,17 +434,17 @@ TF_CALL_double(REGISTER_CPU_KERNEL);
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(
-    Name("DepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
-    DepthwiseConv2dNativeOp<GPUDevice, Eigen::half>);
+    Name("HexDepthwiseConv2DNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
+    HexDepthwiseConv2DNativeOp<GPUDevice, Eigen::half>);
 
 REGISTER_KERNEL_BUILDER(
-    Name("DepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<float>("T"),
-    DepthwiseConv2dNativeOp<GPUDevice, float>);
+    Name("HexDepthwiseConv2DNative").Device(DEVICE_GPU).TypeConstraint<float>("T"),
+    HexDepthwiseConv2DNativeOp<GPUDevice, float>);
 
-REGISTER_KERNEL_BUILDER(Name("DepthwiseConv2dNative")
+REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2DNative")
                             .Device(DEVICE_GPU)
                             .TypeConstraint<double>("T"),
-                        DepthwiseConv2dNativeOp<GPUDevice, double>);
+                        HexDepthwiseConv2DNativeOp<GPUDevice, double>);
 #endif
 
 }  // namespace tensorflow

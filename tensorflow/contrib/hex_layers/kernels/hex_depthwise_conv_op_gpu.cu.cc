@@ -18,7 +18,10 @@ limitations under the License.
 
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/op_kernel.h"
-#include "tensorflow/core/kernels/depthwise_conv_op.h"
+
+// #include "tensorflow/core/kernels/depthwise_conv_op.h"
+#include "hex_depthwise_conv_op.h"
+
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/cuda_kernel_helper.h"
 #include "tensorflow/core/util/tensor_format.h"
@@ -61,16 +64,16 @@ EIGEN_DEVICE_FUNC bool CanLaunchHexDepthwiseConv2dBackpropFilterGPUSmall(
          args.filter_rows * args.filter_cols <= args.in_cols * block_rows;
 }
 
-// The DepthwiseConv2dGPUKernels perform either forward or backprop input
+// TheHexDepthwiseConv2DGPUKernels perform either forward or backprop input
 // convolution depending on a template argument of this enum.
-enum DepthwiseConv2dDirection { DIRECTION_FORWARD, DIRECTION_BACKWARD };
+enum HexDepthwiseConv2DDirection { DIRECTION_FORWARD, DIRECTION_BACKWARD };
 
 // A Cuda kernel to compute the depthwise convolution forward pass
 // in NHWC format.
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(1024, 2)
-    DepthwiseConv2dGPUKernelNHWC(const HexDepthwiseArgs args, const T* input,
+    HexDepthwiseConv2DGPUKernelNHWC(const HexDepthwiseArgs args, const T* input,
                                  const T* filter, T* output, int num_outputs) {
   const int in_rows = args.in_rows;
   const int in_cols = args.in_cols;
@@ -156,10 +159,10 @@ __global__ void __launch_bounds__(1024, 2)
 // one each in the lower and upper half of a tile.
 // Backprop input direction is the same as forward direction with the filter
 // rotated by 180°.
-template <typename T, DepthwiseConv2dDirection kDirection,
+template <typename T, HexDepthwiseConv2DDirection kDirection,
           int kKnownFilterWidth, int kKnownFilterHeight, int kBlockSlices,
           bool kKnownEvenRows>
-__global__ __launch_bounds__(1024, 2) void DepthwiseConv2dGPUKernelNHWCSmall(
+__global__ __launch_bounds__(1024, 2) void HexDepthwiseConv2DGPUKernelNHWCSmall(
     const HexDepthwiseArgs args, const T* input, const T* filter, T* output) {
   assert(CanLaunchHexDepthwiseConv2dGPUSmall(args));
   // Holds block plus halo and filter data for blockDim.x depths.
@@ -295,7 +298,7 @@ __global__ __launch_bounds__(1024, 2) void DepthwiseConv2dGPUKernelNHWCSmall(
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(1024, 2)
-    DepthwiseConv2dGPUKernelNCHW(const HexDepthwiseArgs args, const T* input,
+    HexDepthwiseConv2DGPUKernelNCHW(const HexDepthwiseArgs args, const T* input,
                                  const T* filter, T* output, int num_outputs) {
   const int in_rows = args.in_rows;
   const int in_cols = args.in_cols;
@@ -426,10 +429,10 @@ __global__ void __launch_bounds__(1024, 2)
 // one each in the lower and upper half of a tile.
 // Backprop input direction is the same as forward direction with the filter
 // rotated by 180°.
-template <typename T, DepthwiseConv2dDirection kDirection,
+template <typename T, HexDepthwiseConv2DDirection kDirection,
           int kKnownFilterWidth, int kKnownFilterHeight, int kBlockSlices,
           bool kKnownEvenRows>
-__global__ __launch_bounds__(1024, 2) void DepthwiseConv2dGPUKernelNCHWSmall(
+__global__ __launch_bounds__(1024, 2) void HexDepthwiseConv2DGPUKernelNCHWSmall(
     const HexDepthwiseArgs args, const T* input, const T* filter, T* output) {
   assert(CanLaunchHexDepthwiseConv2dGPUSmall(args));
   // Holds block plus halo and filter data for blockDim.z depths.
@@ -561,7 +564,7 @@ __global__ __launch_bounds__(1024, 2) void DepthwiseConv2dGPUKernelNCHWSmall(
   }
 }
 
-template <typename T, DepthwiseConv2dDirection kDirection,
+template <typename T, HexDepthwiseConv2DDirection kDirection,
           int kKnownFilterWidth, int kKnownFilterHeight, int kBlockSlices,
           bool kKnownEvenRows>
 void LaunchHexDepthwiseConv2dGPUSmall(const GpuDevice& d, const HexDepthwiseArgs args,
@@ -572,12 +575,12 @@ void LaunchHexDepthwiseConv2dGPUSmall(const GpuDevice& d, const HexDepthwiseArgs
   void (*kernel)(const HexDepthwiseArgs, const T*, const T*, T*);
   if (data_format == FORMAT_NHWC) {
     block_dim = dim3(kBlockSlices, args.in_cols, block_rows);
-    kernel = DepthwiseConv2dGPUKernelNHWCSmall<T, kDirection, kKnownFilterWidth,
+    kernel = HexDepthwiseConv2DGPUKernelNHWCSmall<T, kDirection, kKnownFilterWidth,
                                                kKnownFilterHeight, kBlockSlices,
                                                kKnownEvenRows>;
   } else if (data_format == FORMAT_NCHW) {
     block_dim = dim3(args.in_cols, block_rows, kBlockSlices);
-    kernel = DepthwiseConv2dGPUKernelNCHWSmall<T, kDirection, kKnownFilterWidth,
+    kernel = HexDepthwiseConv2DGPUKernelNCHWSmall<T, kDirection, kKnownFilterWidth,
                                                kKnownFilterHeight, kBlockSlices,
                                                kKnownEvenRows>;
   } else {
@@ -599,7 +602,7 @@ void LaunchHexDepthwiseConv2dGPUSmall(const GpuDevice& d, const HexDepthwiseArgs
       args, input, filter, output);
 }
 
-template <typename T, DepthwiseConv2dDirection kDirection,
+template <typename T, HexDepthwiseConv2DDirection kDirection,
           int kKnownFilterWidth, int kKnownFilterHeight, int kBlockSlices>
 void LaunchHexDepthwiseConv2dGPUSmall(const GpuDevice& d, const HexDepthwiseArgs args,
                                    const T* input, const T* filter, T* output,
@@ -615,7 +618,7 @@ void LaunchHexDepthwiseConv2dGPUSmall(const GpuDevice& d, const HexDepthwiseArgs
   }
 }
 
-template <typename T, DepthwiseConv2dDirection kDirection,
+template <typename T, HexDepthwiseConv2DDirection kDirection,
           int kKnownFilterWidth, int kKnownFilterHeight>
 void LaunchHexDepthwiseConv2dGPUSmall(const GpuDevice& d, const HexDepthwiseArgs args,
                                    const T* input, const T* filter, T* output,
@@ -646,11 +649,11 @@ void LaunchHexDepthwiseConv2dGPU(const GpuDevice& d, const HexDepthwiseArgs args
   void (*kernel)(const HexDepthwiseArgs, const T*, const T*, T*, int);
   if (data_format == FORMAT_NHWC) {
     kernel =
-        DepthwiseConv2dGPUKernelNHWC<T, kKnownFilterWidth, kKnownFilterHeight,
+        HexDepthwiseConv2DGPUKernelNHWC<T, kKnownFilterWidth, kKnownFilterHeight,
                                      kKnownDepthMultiplier>;
   } else if (data_format == FORMAT_NCHW) {
     kernel =
-        DepthwiseConv2dGPUKernelNCHW<T, kKnownFilterWidth, kKnownFilterHeight,
+        HexDepthwiseConv2DGPUKernelNCHW<T, kKnownFilterWidth, kKnownFilterHeight,
                                      kKnownDepthMultiplier>;
   } else {
     assert(false && "Incorrect data format");
@@ -707,7 +710,7 @@ void LaunchHexDepthwiseConvOp<GPUDevice, T>::operator()(OpKernelContext* ctx,
   auto stream = ctx->op_device_context()->stream();
   OP_REQUIRES(ctx, stream->ok(),
               errors::Internal(
-                  "Launch of gpu kernel for DepthwiseConv2dGPULaunch failed"));
+                  "Launch of gpu kernel for HexDepthwiseConv2DGPULaunch failed"));
 }
 
 template struct LaunchHexDepthwiseConvOp<GPUDevice, Eigen::half>;
@@ -718,7 +721,7 @@ template struct LaunchHexDepthwiseConvOp<GPUDevice, double>;
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(640, 2)
-    DepthwiseConv2dBackpropInputGPUKernelNHWC(const HexDepthwiseArgs args,
+    HexDepthwiseConv2DBackpropInputGPUKernelNHWC(const HexDepthwiseArgs args,
                                               const T* out_backprop,
                                               const T* filter, T* in_backprop,
                                               int num_in_backprop) {
@@ -782,7 +785,7 @@ __global__ void __launch_bounds__(640, 2)
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(640, 2)
-    DepthwiseConv2dBackpropInputGPUKernelNCHW(const HexDepthwiseArgs args,
+    HexDepthwiseConv2DBackpropInputGPUKernelNCHW(const HexDepthwiseArgs args,
                                               const T* out_backprop,
                                               const T* filter, T* in_backprop,
                                               int num_in_backprop) {
@@ -859,10 +862,10 @@ void LaunchHexDepthwiseConv2dBackpropInputGPU(const GpuDevice& d,
                                            TensorFormat data_format) {
   void (*kernel)(const HexDepthwiseArgs, const T*, const T*, T*, int);
   if (data_format == FORMAT_NHWC) {
-    kernel = DepthwiseConv2dBackpropInputGPUKernelNHWC<
+    kernel = HexDepthwiseConv2DBackpropInputGPUKernelNHWC<
         T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
   } else if (data_format == FORMAT_NCHW) {
-    kernel = DepthwiseConv2dBackpropInputGPUKernelNCHW<
+    kernel = HexDepthwiseConv2DBackpropInputGPUKernelNCHW<
         T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
   } else {
     assert(false && "Incorrect data format");
@@ -916,7 +919,7 @@ void LaunchHexDepthwiseConvBackpropInputOp<GPUDevice, T>::operator()(
   auto stream = ctx->op_device_context()->stream();
   OP_REQUIRES(ctx, stream->ok(),
               errors::Internal("Launch of gpu kernel for "
-                               "DepthwiseConv2dBackpropInp"
+                               "HexDepthwiseConv2DBackpropInp"
                                "utGPULaunch failed"));
 }
 
@@ -928,7 +931,7 @@ template struct LaunchHexDepthwiseConvBackpropInputOp<GPUDevice, double>;
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(640, 2)
-    DepthwiseConv2dBackpropFilterGPUKernelNHWC(const HexDepthwiseArgs args,
+    HexDepthwiseConv2DBackpropFilterGPUKernelNHWC(const HexDepthwiseArgs args,
                                                const T* out_backprop,
                                                const T* input,
                                                T* filter_backprop,
@@ -1049,7 +1052,7 @@ __device__ __forceinline__ T WarpSumReduce(T val) {
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kBlockSlices, int kAccumPixels>
 __global__
-__launch_bounds__(1024, 2) void DepthwiseConv2dBackpropFilterGPUKernelNHWCSmall(
+__launch_bounds__(1024, 2) void HexDepthwiseConv2DBackpropFilterGPUKernelNHWCSmall(
     const HexDepthwiseArgs args, const T* output, const T* input, T* filter) {
   assert(CanLaunchHexDepthwiseConv2dBackpropFilterGPUSmall(args, blockDim.z));
   // Holds block plus halo and filter data for blockDim.x depths.
@@ -1196,7 +1199,7 @@ __launch_bounds__(1024, 2) void DepthwiseConv2dBackpropFilterGPUKernelNHWCSmall(
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(640, 2)
-    DepthwiseConv2dBackpropFilterGPUKernelNCHW(const HexDepthwiseArgs args,
+    HexDepthwiseConv2DBackpropFilterGPUKernelNCHW(const HexDepthwiseArgs args,
                                                const T* out_backprop,
                                                const T* input,
                                                T* filter_backprop,
@@ -1308,7 +1311,7 @@ __global__ void __launch_bounds__(640, 2)
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kBlockSlices, int kAccumPixels>
 __global__
-__launch_bounds__(1024, 2) void DepthwiseConv2dBackpropFilterGPUKernelNCHWSmall(
+__launch_bounds__(1024, 2) void HexDepthwiseConv2DBackpropFilterGPUKernelNCHWSmall(
     const HexDepthwiseArgs args, const T* output, const T* input, T* filter) {
   assert(CanLaunchHexDepthwiseConv2dBackpropFilterGPUSmall(args, blockDim.x));
   // Holds block plus halo and filter data for blockDim.z depths.
@@ -1466,11 +1469,11 @@ bool TryLaunchHexDepthwiseConv2dBackpropFilterGPUSmall(
   void (*kernel)(const HexDepthwiseArgs, const T*, const T*, T*);
   if (data_format == FORMAT_NHWC) {
     block_dim = dim3(kBlockSlices, args.in_cols, block_rows);
-    kernel = DepthwiseConv2dBackpropFilterGPUKernelNHWCSmall<
+    kernel = HexDepthwiseConv2DBackpropFilterGPUKernelNHWCSmall<
         T, kKnownFilterWidth, kKnownFilterHeight, kBlockSlices, kAccumPixels>;
   } else if (data_format == FORMAT_NCHW) {
     block_dim = dim3(args.in_cols, block_rows, kBlockSlices);
-    kernel = DepthwiseConv2dBackpropFilterGPUKernelNCHWSmall<
+    kernel = HexDepthwiseConv2DBackpropFilterGPUKernelNCHWSmall<
         T, kKnownFilterWidth, kKnownFilterHeight, kBlockSlices, kAccumPixels>;
   } else {
     assert(false && "Incorrect data format");
@@ -1565,10 +1568,10 @@ void LaunchHexDepthwiseConv2dBackpropFilterGPU(const GpuDevice& d,
                                             TensorFormat data_format) {
   void (*kernel)(const HexDepthwiseArgs, const T*, const T*, T*, int);
   if (data_format == FORMAT_NHWC) {
-    kernel = DepthwiseConv2dBackpropFilterGPUKernelNHWC<
+    kernel = HexDepthwiseConv2DBackpropFilterGPUKernelNHWC<
         T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
   } else if (data_format == FORMAT_NCHW) {
-    kernel = DepthwiseConv2dBackpropFilterGPUKernelNCHW<
+    kernel = HexDepthwiseConv2DBackpropFilterGPUKernelNCHW<
         T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
   } else {
     assert(false && "Incorrect data format");
@@ -1629,7 +1632,7 @@ void LaunchHexDepthwiseConvBackpropFilterOp<GPUDevice, T>::operator()(
   }
   OP_REQUIRES(ctx, stream->ok(),
               errors::Internal("Launch of gpu kernel for "
-                               "DepthwiseConv2dBackpropFil"
+                               "HexDepthwiseConv2DBackpropFil"
                                "terGPULaunch failed"));
 }
 
