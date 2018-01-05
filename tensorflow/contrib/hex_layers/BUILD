@@ -160,7 +160,7 @@ tf_custom_op_py_library(
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
-        # ":hex_nn_ops_op_lib",
+        ":hex_nn_ops",
         "//tensorflow/contrib/util:util_py",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:control_flow_ops",
