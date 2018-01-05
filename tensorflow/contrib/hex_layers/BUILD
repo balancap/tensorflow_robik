@@ -94,12 +94,12 @@ tf_custom_op_library(
         "ops/hex_nn_ops.cc",
     ],
     deps = [
-        ":hex_depthwise_convolution",
+        # ":hex_depthwise_convolution",
         "//tensorflow/core/kernels:ops_util",
         "//tensorflow/core/kernels:conv_ops",
         "//tensorflow/core:framework",
         "//tensorflow/core:lib",
-        "//third_party/eigen3",
+        # "//third_party/eigen3",
     ],
 )
 
