@@ -268,7 +268,7 @@ cc_library(
 
 cc_library(
     name = "conv_ops_gpu_hdrs",
-    hdrs = ["conv_ops_gpu.h"],
+    hdrs = ["conv_ops_gpu.h", "conv_ops.h"],
 )
 
 cc_library(
