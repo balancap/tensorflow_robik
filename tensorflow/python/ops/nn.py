@@ -101,6 +101,11 @@ See the @{$python/nn} guide.
 @@quantized_relu_x
 @@quantized_max_pool
 @@quantized_avg_pool
+
+@@hex_depthwise_conv2d
+@@hex_depthwise_conv2d_native
+@@hex_depthwise_conv2d_native_backprop_filter
+@@hex_depthwise_conv2d_native_backprop_input
 """
 from __future__ import absolute_import
 from __future__ import division

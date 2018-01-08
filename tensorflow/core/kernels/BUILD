@@ -3084,6 +3084,54 @@ tf_kernel_library(
     ]),
 )
 
+# --------------------------------------------------------------------------
+# Hexagonal kernels
+# --------------------------------------------------------------------------
+tf_kernel_library(
+    name = "hex_depthwise_conv_op",
+    prefix = "hex_depthwise_conv_op",
+    srcs = [
+        "hex_nn/hex_depthwise_conv_op.cc",
+    ],
+    hdrs = [
+        "hex_nn/hex_depthwise_conv_op.h",
+    ],
+    gpu_srcs = [
+        "hex_nn/hex_depthwise_conv_op.h",
+        "hex_nn/hex_depthwise_conv_op_gpu.cu.cc",
+    ],
+    deps = [
+        ":bounds_check",
+        ":conv_ops",
+        ":ops_util",
+        "//tensorflow/core:core_cpu",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:nn_ops_op_lib",
+    ] + if_cuda(["@cub_archive//:cub"]),
+)
+tf_kernel_library(
+    name = "hex_depthwise_conv_grad_op",
+    srcs = [
+        "hex_nn/hex_depthwise_conv_grad_op.cc",
+    ],
+    hdrs = [
+        "hex_nn/hex_depthwise_conv_op.h",
+    ],
+    prefix = "hex_depthwise_conv_grad_op",
+    deps = [
+        ":bounds_check",
+        ":ops_util",
+        "//tensorflow/core:core_cpu",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:nn_ops_op_lib",
+    ],
+)
+# --------------------------------------------------------------------------
+# Hexagonal kernels
+# --------------------------------------------------------------------------
+
 tf_kernel_library(
     name = "depthwise_conv_op",
     prefix = "depthwise_conv_op",
@@ -3123,6 +3171,8 @@ cc_library(
         ":data_format_ops",
         ":depthwise_conv_grad_op",
         ":depthwise_conv_op",
+        ":hex_depthwise_conv_grad_op",
+        ":hex_depthwise_conv_op",
         ":dilation_ops",
         ":fused_batch_norm_op",
         ":in_topk_op",
