@@ -39,11 +39,47 @@ namespace tensorflow {
 
 using Eigen::GpuDevice;
 
+// -------------------------------------------------------------------------- //
+// Look-up tables for hexagonal filters and coordinates.
+// -------------------------------------------------------------------------- //
+#define MAX_NUM_ELEMENTS 19
+/** Number of elements per circle of the filter. */
+__constant__ int NUM_ELEMENTS_RADIUS[4] = {1, 6, 12, 18};
+/** Filter table, started with top-left corner. */
+// int FILTER_TABLE_X = {
+//   {0}
+// }
+__constant__ int INPUT_DELTA_ROWS[2][MAX_NUM_ELEMENTS] = {
+  {
+    0,
+    -1, -1, 0, 1, 1, 0,
+    -2, -2, -2, -1, 0, 1, 2, 2, 2, 1, 0, -1
+  },
+  {
+    0,
+    -1, -1, 0, 1, 1, 0,
+    -2, -2, -2, -1, 0, 1, 2, 2, 2, 1, 0, -1
+  },
+};
+__constant__ int INPUT_DELTA_COLS[2][MAX_NUM_ELEMENTS] = {
+  {
+    0,
+    -1, 0, 1, 0, -1, -1,
+    -1, 0, 1, 1, 2, 1, 1, 0, -1, -1, -2, -1
+  },
+  {
+    0,
+    0, 1, 1, 1, 0, -1,
+    -1, 0, 1, 2, 2, 2, 1, 0, -1, -2, -2, -2
+  },
+};
+
+
 // Returns whether depthwise convolution forward or backward input pass can be
 // performed using the faster ('Small') variant of the kernel.
 EIGEN_DEVICE_FUNC bool CanLaunchHexDepthwiseConv2dGPUSmall(
     const HexDepthwiseArgs args) {
-  return args.depth_multiplier == 1 && args.stride == 1 && args.in_rows <= 32 &&
+  return false && args.depth_multiplier == 1 && args.stride == 1 && args.in_rows <= 32 &&
          args.in_cols <= 32 && args.in_rows == args.out_rows &&
          args.in_cols == args.out_cols && args.pad_rows >= 0 &&
          args.pad_rows < args.filter_rows && args.pad_cols >= 0 &&
@@ -56,7 +92,7 @@ EIGEN_DEVICE_FUNC bool CanLaunchHexDepthwiseConv2dGPUSmall(
 // using the faster ('Small') variant of the kernel.
 EIGEN_DEVICE_FUNC bool CanLaunchHexDepthwiseConv2dBackpropFilterGPUSmall(
     const HexDepthwiseArgs args, const int block_rows) {
-  return args.depth_multiplier == 1 && args.stride == 1 && args.in_rows <= 32 &&
+  return false && args.depth_multiplier == 1 && args.stride == 1 && args.in_rows <= 32 &&
          args.in_cols <= 32 && args.in_rows == args.out_rows &&
          args.in_cols == args.out_cols && args.pad_rows >= 0 &&
          args.pad_rows < args.filter_rows && args.pad_cols >= 0 &&
@@ -90,6 +126,8 @@ __global__ void __launch_bounds__(1024, 2)
   const int out_rows = args.out_rows;
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
+  // Filter radius
+  const int radius = filter_cols / 2;
 
   CUDA_1D_KERNEL_LOOP(thread_id, num_outputs) {
     // Compute the indexes of this thread in the output.
@@ -107,44 +145,90 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_col_start = OC * stride - pad_cols;
     const int input_row_end = input_row_start + filter_rows;
     const int input_col_end = input_col_start + filter_cols;
+    // Input center coordinates.
+    const int input_row_center = input_row_start + radius;
+    const int input_col_center = input_col_start + radius;
+    const int input_row_sign = input_row_center % 2;
+    // Even odd input row starts.
+    const int fr_start_e = input_row_start % 2;
+    const int fr_start_o = 1 - fr_start_e;
 
     T sum = static_cast<T>(0);
-
     const int input_offset_temp = in_rows * OB;
     if (input_row_start >= 0 && input_col_start >= 0 &&
         input_row_end < in_rows && input_col_end < in_cols) {
-      UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-        const int in_r = input_row_start + f_r;
-        const int filter_offset_temp = filter_cols * f_r;
-        UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-          const int in_c = input_col_start + f_c;
+
+      // Loop on filter radius.
+      int f_idx = 0;
+      UNROLL for (int r = 0 ; r <= radius ; ++r) {
+        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+          // Input coordinates.
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
 
           const int input_offset =
               in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
           const int filter_offset =
               multiplier +
-              depth_multiplier * (in_d + in_depth * (f_c + filter_offset_temp));
+              depth_multiplier * (in_d + in_depth * f_idx);
           sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+          // Update filter index.
+          ++f_idx;
         }
       }
-    } else {
-      UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-        const int in_r = input_row_start + f_r;
-        const int filter_offset_temp = filter_cols * f_r;
-        UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-          const int in_c = input_col_start + f_c;
-          if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
-            const int in_c = input_col_start + f_c;
 
+      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
+      //   const int in_r = input_row_start + f_r;
+      //   const int filter_offset_temp = filter_cols * f_r;
+      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
+      //     const int in_c = input_col_start + f_c;
+
+      //     const int input_offset =
+      //         in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+      //     const int filter_offset =
+      //         multiplier +
+      //         depth_multiplier * (in_d + in_depth * (f_c + filter_offset_temp));
+      //     sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+      //   }
+      // }
+    } else {
+      // Loop on filter radius.
+      int f_idx = 0;
+      UNROLL for (int r = 0 ; r <= radius ; ++r) {
+        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+          // Input coordinates.
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+          if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
             const int input_offset =
                 in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
             const int filter_offset =
-                multiplier + depth_multiplier *
-                                 (in_d + in_depth * (f_c + filter_offset_temp));
+                multiplier +
+                depth_multiplier * (in_d + in_depth * f_idx);
             sum += ldg(input + input_offset) * ldg(filter + filter_offset);
           }
+          // Update filter index.
+          ++f_idx;
         }
       }
+
+      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
+      //   const int in_r = input_row_start + f_r;
+      //   const int filter_offset_temp = filter_cols * f_r;
+      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
+      //     const int in_c = input_col_start + f_c;
+      //     if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
+      //       const int in_c = input_col_start + f_c;
+
+      //       const int input_offset =
+      //           in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+      //       const int filter_offset =
+      //           multiplier + depth_multiplier *
+      //                            (in_d + in_depth * (f_c + filter_offset_temp));
+      //       sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+      //     }
+      //   }
+      // }
     }
     output[thread_id] = sum;
   }
