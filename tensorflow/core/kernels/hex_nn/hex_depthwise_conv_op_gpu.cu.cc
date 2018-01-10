@@ -49,6 +49,12 @@ __constant__ int NUM_ELEMENTS_RADIUS[4] = {1, 6, 12, 18};
 // int FILTER_TABLE_X = {
 //   {0}
 // }
+__constant__ int ELEMENTS_GRAD[MAX_NUM_ELEMENTS] = {
+  0,
+  4, 5, 6, 1, 2, 3,
+  13, 14, 15, 16, 17, 18, 7, 8, 9, 10, 11, 12
+};
+
 __constant__ int INPUT_DELTA_ROWS[2][MAX_NUM_ELEMENTS] = {
   {
     0,
@@ -110,7 +116,7 @@ template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
           int kKnownDepthMultiplier>
 __global__ void __launch_bounds__(1024, 2)
     HexDepthwiseConv2DGPUKernelNHWC(const HexDepthwiseArgs args, const T* input,
-                                 const T* filter, T* output, int num_outputs) {
+                                    const T* filter, T* output, int num_outputs) {
   const int in_rows = args.in_rows;
   const int in_cols = args.in_cols;
   const int in_depth = args.in_depth;
@@ -149,9 +155,6 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_row_center = input_row_start + radius;
     const int input_col_center = input_col_start + radius;
     const int input_row_sign = input_row_center % 2;
-    // Even odd input row starts.
-    const int fr_start_e = input_row_start % 2;
-    const int fr_start_o = 1 - fr_start_e;
 
     T sum = static_cast<T>(0);
     const int input_offset_temp = in_rows * OB;
@@ -825,44 +828,122 @@ __global__ void __launch_bounds__(640, 2)
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
 
+  // Filter radius
+  const int radius = filter_cols / 2;
   CUDA_1D_KERNEL_LOOP(thread_id, num_in_backprop) {
     // Compute the indexes of this thread in the output.
-    const int in_d = thread_id % in_depth;
-    const int in_c = (thread_id / in_depth) % in_cols;
-    const int in_r = (thread_id / in_depth / in_cols) % in_rows;
-    const int b = thread_id / in_depth / in_cols / in_rows;
+    // Depth / Cols / Rows / Batch.
+    const int OD = thread_id % out_depth;
+    const int OC = (thread_id / out_depth) % out_cols;
+    const int OR = (thread_id / out_depth / out_cols) % out_rows;
+    const int OB = thread_id / out_depth / out_cols / out_rows;
+    // Compute the input depth and the index of depth multiplier.
+    const int in_d = OD / depth_multiplier;
+    const int multiplier = OD % depth_multiplier;
+
+    // Decide if all input is valid, if yes, we can skip the boundary checks
+    // for each input.
+    const int input_row_start = OR * stride - pad_rows;
+    const int input_col_start = OC * stride - pad_cols;
+    const int input_row_end = input_row_start + filter_rows;
+    const int input_col_end = input_col_start + filter_cols;
+    // Input center coordinates.
+    const int input_row_center = input_row_start + radius;
+    const int input_col_center = input_col_start + radius;
+    const int input_row_sign = input_row_center % 2;
 
     T sum = static_cast<T>(0);
+    const int input_offset_temp = in_rows * OB;
+    if (input_row_start >= 0 && input_col_start >= 0 &&
+        input_row_end < in_rows && input_col_end < in_cols) {
 
-    const int out_r_start =
-        tf_max<int>(0, (in_r - filter_rows + pad_rows + stride) / stride);
-    const int out_r_end = tf_min(out_rows - 1, (in_r + pad_rows) / stride);
-    const int out_c_start =
-        tf_max(0, (in_c - filter_cols + pad_cols + stride) / stride);
-    const int out_c_end = tf_min(out_cols - 1, (in_c + pad_cols) / stride);
+      // Loop on filter radius.
+      int f_idx = 0;
+      UNROLL for (int r = 0 ; r <= radius ; ++r) {
+        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+          // Input coordinates.
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
 
-    NOUNROLL for (int out_r = out_r_start; out_r <= out_r_end; ++out_r) {
-      const int f_r = in_r + pad_rows - out_r * stride;
-      const int temp_out_backprop_offset =
-          out_depth * out_cols * (out_r + out_rows * b);
-      const int temp_filter_offset = filter_cols * f_r;
-      NOUNROLL for (int out_c = out_c_start; out_c <= out_c_end; ++out_c) {
-        const int f_c = in_c + pad_cols - out_c * stride;
-        int filter_offset =
-            depth_multiplier * (in_d + in_depth * (f_c + temp_filter_offset));
-        const int out_backprop_offset =
-            out_depth * out_c + temp_out_backprop_offset;
-#pragma unroll 6
-        for (int i = 0; i < depth_multiplier; ++i) {
-          sum += ldg(out_backprop + out_backprop_offset +
-                     in_d * depth_multiplier + i) *
-                 ldg(filter + filter_offset + i);
+          const int input_offset =
+              in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+          const int filter_offset =
+              multiplier +
+              depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
+          sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
+          // Update filter index.
+          ++f_idx;
         }
       }
     }
-    const int in_backprop_offset =
-        in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
-    in_backprop[in_backprop_offset] = sum;
+    else {
+      // Loop on filter radius.
+      int f_idx = 0;
+      UNROLL for (int r = 0 ; r <= radius ; ++r) {
+        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+          // Input coordinates.
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+          if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
+            const int input_offset =
+                in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+            const int filter_offset =
+                multiplier +
+                depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
+            sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
+          }
+          // Update filter index.
+          ++f_idx;
+        }
+      }
+    }
+    in_backprop[thread_id] = sum;
+
+
+//     // Compute the indexes of this thread in the output.
+//     const int in_d = thread_id % in_depth;
+//     const int in_c = (thread_id / in_depth) % in_cols;
+//     const int in_r = (thread_id / in_depth / in_cols) % in_rows;
+//     const int b = thread_id / in_depth / in_cols / in_rows;
+
+//     // Output coordinates...
+//     const int o_row_start = in_c * stride - pad_rows;
+//     const int o_col_start = in_c * stride - pad_cols;
+//     const int o_row_end = o_row_start + filter_rows;
+//     const int o_col_end = o_col_start + filter_cols;
+//     // Center coordinates.
+//     const int o_row_center = input_row_start + radius;
+//     const int o_col_center = input_col_start + radius;
+//     const int o_row_sign = input_row_center % 2;
+
+//     T sum = static_cast<T>(0);
+//     // ELEMENTS_GRAD
+//     const int out_r_start =
+//         tf_max<int>(0, (in_r - filter_rows + pad_rows + stride) / stride);
+//     const int out_r_end = tf_min(out_rows - 1, (in_r + pad_rows) / stride);
+//     const int out_c_start =
+//         tf_max(0, (in_c - filter_cols + pad_cols + stride) / stride);
+//     const int out_c_end = tf_min(out_cols - 1, (in_c + pad_cols) / stride);
+
+//     NOUNROLL for (int out_r = out_r_start; out_r <= out_r_end; ++out_r) {
+//       const int f_r = in_r + pad_rows - out_r * stride;
+//       NOUNROLL for (int out_c = out_c_start; out_c <= out_c_end; ++out_c) {
+//         const int f_c = in_c + pad_cols - out_c * stride;
+//         int filter_offset =
+//             depth_multiplier * (in_d + in_depth * (f_c + filter_cols * f_r));
+//         const int out_backprop_offset =
+//             out_depth * out_c + out_depth * out_cols * (out_r + out_rows * b);
+// #pragma unroll 6
+//         for (int i = 0; i < depth_multiplier; ++i) {
+//           sum += ldg(out_backprop + out_backprop_offset +
+//                      in_d * depth_multiplier + i) *
+//                  ldg(filter + filter_offset + i);
+//         }
+//       }
+//     }
+//     const int in_backprop_offset =
+//         in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
+//     in_backprop[in_backprop_offset] = sum;
   }
 }
 
@@ -1036,6 +1117,7 @@ __global__ void __launch_bounds__(640, 2)
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
 
+  const int radius = filter_cols / 2;
   CUDA_1D_KERNEL_LOOP(thread_id, num_out_backprop) {
     // Compute the indexes of this thread in the output.
     const int out_d = thread_id % out_depth;
@@ -1052,55 +1134,96 @@ __global__ void __launch_bounds__(640, 2)
     const int in_c_start = out_c * stride - pad_cols;
     const int in_r_end = in_r_start + filter_rows;
     const int in_c_end = in_c_start + filter_cols;
+    // Input center coordinates.
+    const int input_row_center = in_r_start + radius;
+    const int input_col_center = in_c_start + radius;
+    const int input_row_sign = input_row_center % 2;
 
     const int out_backprop_offset =
         out_d + out_depth * (out_c + out_cols * (out_r + out_rows * b));
     const T out_bp = ldg(out_backprop + out_backprop_offset);
     if (in_r_start >= 0 && in_c_start >= 0 && in_r_end < in_rows &&
         in_c_end < in_cols) {
-      UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-        const int in_r = in_r_start + f_r;
-        // Avoid repeated computation.
-        const int input_offset_temp = in_cols * (in_r + in_rows * b);
-        UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-          const int in_c = in_c_start + f_c;
 
-          const int input_offset = in_d + in_depth * (in_c + input_offset_temp);
+      // Loop on filter radius.
+      int f_idx = 0;
+      UNROLL for (int r = 0 ; r <= radius ; ++r) {
+        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+          // Input coordinates.
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+
+          const int input_offset =
+              in_d + in_depth * (in_c + in_cols * (in_r + in_cols * (in_r + in_rows * b)));
           T partial_sum = ldg(input + input_offset) * out_bp;
           T* addr = filter_backprop +
-                    (dm + depth_multiplier *
-                              (in_d + in_depth * (f_c + filter_cols * f_r)));
+                    (dm + depth_multiplier * (in_d + in_depth * f_idx));
           CudaAtomicAdd(addr, partial_sum);
+          // Update filter index.
+          ++f_idx;
         }
       }
+      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
+      //   // Avoid repeated computation.
+      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
+      //     const int in_r = in_r_start + f_r;
+      //     const int in_c = in_c_start + f_c;
+
+      //     const int input_offset = in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
+      //     T partial_sum = ldg(input + input_offset) * out_bp;
+      //     T* addr = filter_backprop +
+      //               (dm + depth_multiplier *
+      //                         (in_d + in_depth * (f_c + filter_cols * f_r)));
+      //     CudaAtomicAdd(addr, partial_sum);
+      //   }
+      // }
     } else {
-      UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-        const int in_r = in_r_start + f_r;
-        // Avoid repeated computation.
-        const int input_offset_temp = in_cols * (in_r + in_rows * b);
-        UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-          const int in_c = in_c_start + f_c;
-          const int addr_temp = filter_cols * f_r;
+      int f_idx = 0;
+      UNROLL for (int r = 0 ; r <= radius ; ++r) {
+        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+          // Input coordinates.
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
 
           if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
             const int input_offset =
-                in_d + in_depth * (in_c + input_offset_temp);
+                in_d + in_depth * (in_c + in_cols * (in_r + in_cols * (in_r + in_rows * b)));
             T partial_sum = ldg(input + input_offset) * out_bp;
-            T* addr =
-                filter_backprop +
-                (dm + depth_multiplier * (in_d + in_depth * (f_c + addr_temp)));
-            // Potentially many threads can add to the same address so we have
-            // to use atomic add here.
-            // TODO(jmchen): If atomic add turns out to be slow, we can:
-            // 1. allocate multiple buffers for the gradients (one for each
-            // example in a batch, for example). This can reduce the
-            // contention on the destination; 2. Have each thread compute one
-            // gradient for an element in the filters. This should work well
-            // when the input depth is big and filter size is not too small.
+            T* addr = filter_backprop +
+                      (dm + depth_multiplier * (in_d + in_depth * f_idx));
             CudaAtomicAdd(addr, partial_sum);
           }
+          // Update filter index.
+          ++f_idx;
         }
       }
+      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
+      //   const int in_r = in_r_start + f_r;
+      //   // Avoid repeated computation.
+      //   const int input_offset_temp = in_cols * (in_r + in_rows * b);
+      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
+      //     const int in_c = in_c_start + f_c;
+      //     const int addr_temp = filter_cols * f_r;
+
+      //     if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
+      //       const int input_offset =
+      //           in_d + in_depth * (in_c + input_offset_temp);
+      //       T partial_sum = ldg(input + input_offset) * out_bp;
+      //       T* addr =
+      //           filter_backprop +
+      //           (dm + depth_multiplier * (in_d + in_depth * (f_c + addr_temp)));
+      //       // Potentially many threads can add to the same address so we have
+      //       // to use atomic add here.
+      //       // TODO(jmchen): If atomic add turns out to be slow, we can:
+      //       // 1. allocate multiple buffers for the gradients (one for each
+      //       // example in a batch, for example). This can reduce the
+      //       // contention on the destination; 2. Have each thread compute one
+      //       // gradient for an element in the filters. This should work well
+      //       // when the input depth is big and filter size is not too small.
+      //       CudaAtomicAdd(addr, partial_sum);
+      //     }
+      //   }
+      // }
     }
   }
 }
