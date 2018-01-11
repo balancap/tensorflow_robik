@@ -260,8 +260,7 @@ __global__ void __launch_bounds__(640, 2)
           const int input_offset =
               in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
           const int filter_offset =
-              multiplier +
-              depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
+              multiplier + depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
           sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
           // Update filter index.
           ++f_idx;
@@ -280,8 +279,7 @@ __global__ void __launch_bounds__(640, 2)
             const int input_offset =
                 in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
             const int filter_offset =
-                multiplier +
-                depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
+                multiplier + depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
             sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
           }
           // Update filter index.
@@ -402,8 +400,7 @@ __global__ void __launch_bounds__(640, 2)
           const int input_offset =
               in_d + in_depth * (in_c + in_cols * (in_r + in_cols * (in_r + in_rows * b)));
           T partial_sum = ldg(input + input_offset) * out_bp;
-          T* addr = filter_backprop +
-                    (dm + depth_multiplier * (in_d + in_depth * f_idx));
+          T* addr = filter_backprop + (dm + depth_multiplier * (in_d + in_depth * f_idx));
           CudaAtomicAdd(addr, partial_sum);
           // Update filter index.
           ++f_idx;
@@ -423,7 +420,8 @@ __global__ void __launch_bounds__(640, 2)
       //     CudaAtomicAdd(addr, partial_sum);
       //   }
       // }
-    } else {
+    }
+    else {
       int f_idx = 0;
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
@@ -443,33 +441,14 @@ __global__ void __launch_bounds__(640, 2)
           ++f_idx;
         }
       }
-      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-      //   const int in_r = in_r_start + f_r;
-      //   // Avoid repeated computation.
-      //   const int input_offset_temp = in_cols * (in_r + in_rows * b);
-      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-      //     const int in_c = in_c_start + f_c;
-      //     const int addr_temp = filter_cols * f_r;
-
-      //     if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
-      //       const int input_offset =
-      //           in_d + in_depth * (in_c + input_offset_temp);
-      //       T partial_sum = ldg(input + input_offset) * out_bp;
-      //       T* addr =
-      //           filter_backprop +
-      //           (dm + depth_multiplier * (in_d + in_depth * (f_c + addr_temp)));
-      //       // Potentially many threads can add to the same address so we have
-      //       // to use atomic add here.
-      //       // TODO(jmchen): If atomic add turns out to be slow, we can:
-      //       // 1. allocate multiple buffers for the gradients (one for each
-      //       // example in a batch, for example). This can reduce the
-      //       // contention on the destination; 2. Have each thread compute one
-      //       // gradient for an element in the filters. This should work well
-      //       // when the input depth is big and filter size is not too small.
-      //       CudaAtomicAdd(addr, partial_sum);
-      //     }
-      //   }
-      // }
+      // Potentially many threads can add to the same address so we have
+      // to use atomic add here.
+      // TODO(jmchen): If atomic add turns out to be slow, we can:
+      // 1. allocate multiple buffers for the gradients (one for each
+      // example in a batch, for example). This can reduce the
+      // contention on the destination; 2. Have each thread compute one
+      // gradient for an element in the filters. This should work well
+      // when the input depth is big and filter size is not too small.
     }
   }
 }
