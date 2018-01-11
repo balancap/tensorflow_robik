@@ -260,9 +260,9 @@ extern template class LaunchConv2DOp<GPUDevice, float>;
 #endif
 
 template <typename Device, typename T>
-class HexDepthwiseConv2DNativeOp : public BinaryOp<T> {
+class HexDepthwiseConv2dNativeOp : public BinaryOp<T> {
  public:
-  explicit HexDepthwiseConv2DNativeOp(OpKernelConstruction* context)
+  explicit HexDepthwiseConv2dNativeOp(OpKernelConstruction* context)
       : BinaryOp<T>(context) {
     OP_REQUIRES_OK(context, context->GetAttr("strides", &strides_));
     string data_format;
@@ -419,13 +419,13 @@ class HexDepthwiseConv2DNativeOp : public BinaryOp<T> {
   bool use_cudnn_;
   bool cudnn_use_autotune_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2DNativeOp);
+  TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2dNativeOp);
 };
 
 #define REGISTER_CPU_KERNEL(T)                                                 \
   REGISTER_KERNEL_BUILDER(                                                     \
-      Name("HexDepthwiseConv2DNative").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
-      HexDepthwiseConv2DNativeOp<CPUDevice, T>);
+      Name("HexDepthwiseConv2dNative").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
+      HexDepthwiseConv2dNativeOp<CPUDevice, T>);
 
 TF_CALL_half(REGISTER_CPU_KERNEL);
 TF_CALL_float(REGISTER_CPU_KERNEL);
@@ -435,17 +435,17 @@ TF_CALL_double(REGISTER_CPU_KERNEL);
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(
-    Name("HexDepthwiseConv2DNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
-    HexDepthwiseConv2DNativeOp<GPUDevice, Eigen::half>);
+    Name("HexDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
+    HexDepthwiseConv2dNativeOp<GPUDevice, Eigen::half>);
 
 REGISTER_KERNEL_BUILDER(
-    Name("HexDepthwiseConv2DNative").Device(DEVICE_GPU).TypeConstraint<float>("T"),
-    HexDepthwiseConv2DNativeOp<GPUDevice, float>);
+    Name("HexDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<float>("T"),
+    HexDepthwiseConv2dNativeOp<GPUDevice, float>);
 
-REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2DNative")
+REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2dNative")
                             .Device(DEVICE_GPU)
                             .TypeConstraint<double>("T"),
-                        HexDepthwiseConv2DNativeOp<GPUDevice, double>);
+                        HexDepthwiseConv2dNativeOp<GPUDevice, double>);
 #endif
 
 }  // namespace tensorflow

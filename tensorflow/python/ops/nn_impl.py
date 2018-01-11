@@ -1312,7 +1312,7 @@ def sampled_softmax_loss(weights,
   return sampled_losses
 
 # --------------------------------------------------------------------------
-# Hexagonal impl.
+# Hexagonal tiling impl.
 # --------------------------------------------------------------------------
 # pylint: disable=redefined-builtin
 def hex_depthwise_conv2d(input,
