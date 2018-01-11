@@ -55,15 +55,11 @@ enum HexDepthwiseConv2DDirection { DIRECTION_FORWARD, DIRECTION_BACKWARD };
 /** Number of elements per circle of the filter. */
 __constant__ int NUM_ELEMENTS_RADIUS[4] = {1, 6, 12, 18};
 /** Filter table, started with top-left corner. */
-// int FILTER_TABLE_X = {
-//   {0}
-// }
 __constant__ int ELEMENTS_GRAD[MAX_NUM_ELEMENTS] = {
   0,
   4, 5, 6, 1, 2, 3,
   13, 14, 15, 16, 17, 18, 7, 8, 9, 10, 11, 12
 };
-
 __constant__ int INPUT_DELTA_ROWS[2][MAX_NUM_ELEMENTS] = {
   {
     0,
@@ -142,7 +138,6 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_offset_temp = in_rows * OB;
     if (input_row_start >= 0 && input_col_start >= 0 &&
         input_row_end < in_rows && input_col_end < in_cols) {
-
       // Loop on filter radius.
       int f_idx = 0;
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
@@ -161,7 +156,6 @@ __global__ void __launch_bounds__(1024, 2)
           ++f_idx;
         }
       }
-
       // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
       //   const int in_r = input_row_start + f_r;
       //   const int filter_offset_temp = filter_cols * f_r;
@@ -176,7 +170,8 @@ __global__ void __launch_bounds__(1024, 2)
       //     sum += ldg(input + input_offset) * ldg(filter + filter_offset);
       //   }
       // }
-    } else {
+    }
+    else {
       // Loop on filter radius.
       int f_idx = 0;
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
@@ -196,24 +191,6 @@ __global__ void __launch_bounds__(1024, 2)
           ++f_idx;
         }
       }
-
-      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-      //   const int in_r = input_row_start + f_r;
-      //   const int filter_offset_temp = filter_cols * f_r;
-      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-      //     const int in_c = input_col_start + f_c;
-      //     if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
-      //       const int in_c = input_col_start + f_c;
-
-      //       const int input_offset =
-      //           in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
-      //       const int filter_offset =
-      //           multiplier + depth_multiplier *
-      //                            (in_d + in_depth * (f_c + filter_offset_temp));
-      //       sum += ldg(input + input_offset) * ldg(filter + filter_offset);
-      //     }
-      //   }
-      // }
     }
     output[thread_id] = sum;
   }
@@ -313,7 +290,6 @@ __global__ void __launch_bounds__(640, 2)
       }
     }
     in_backprop[thread_id] = sum;
-
 
 //     // Compute the indexes of this thread in the output.
 //     const int in_d = thread_id % in_depth;
