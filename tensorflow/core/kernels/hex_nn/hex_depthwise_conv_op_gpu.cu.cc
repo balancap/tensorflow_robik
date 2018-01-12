@@ -132,64 +132,80 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_row_center = input_row_start + radius;
     const int input_col_center = input_col_start + radius;
     const int input_row_sign = input_row_center % 2;
+    const int out_row_sign = OR % 2;
 
     T sum = static_cast<T>(0);
     const int input_offset_temp = in_rows * OB;
-    if (input_row_start >= 0 && input_col_start >= 0 &&
-        input_row_end < in_rows && input_col_end < in_cols) {
-      // Loop on filter radius.
-      int f_idx = 0;
-      UNROLL for (int r = 0 ; r <= radius ; ++r) {
-        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
-          // Input coordinates.
-          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
-          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+    // Full implementation only for stride == 1. TODO: merge everything.
+    if (stride == 1) {
+      if (input_row_start >= 0 && input_col_start >= 0 &&
+          input_row_end < in_rows && input_col_end < in_cols) {
+        // Loop on filter radius.
+        int f_idx = 0;
+        UNROLL for (int r = 0 ; r <= radius ; ++r) {
+          UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+            // Input coordinates.
+            const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+            const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
 
-          const int input_offset =
-              in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
-          const int filter_offset =
-              multiplier +
-              depth_multiplier * (in_d + in_depth * f_idx);
-          sum += ldg(input + input_offset) * ldg(filter + filter_offset);
-          // Update filter index.
-          ++f_idx;
-        }
-      }
-      // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-      //   const int in_r = input_row_start + f_r;
-      //   const int filter_offset_temp = filter_cols * f_r;
-      //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-      //     const int in_c = input_col_start + f_c;
-
-      //     const int input_offset =
-      //         in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
-      //     const int filter_offset =
-      //         multiplier +
-      //         depth_multiplier * (in_d + in_depth * (f_c + filter_offset_temp));
-      //     sum += ldg(input + input_offset) * ldg(filter + filter_offset);
-      //   }
-      // }
-    }
-    else {
-      // Loop on filter radius.
-      int f_idx = 0;
-      UNROLL for (int r = 0 ; r <= radius ; ++r) {
-        UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
-          // Input coordinates.
-          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
-          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
-          if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
             const int input_offset =
                 in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
             const int filter_offset =
                 multiplier +
                 depth_multiplier * (in_d + in_depth * f_idx);
             sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+            // Update filter index.
+            ++f_idx;
           }
-          // Update filter index.
-          ++f_idx;
+        }
+        // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
+        //   const int in_r = input_row_start + f_r;
+        //   const int filter_offset_temp = filter_cols * f_r;
+        //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
+        //     const int in_c = input_col_start + f_c;
+
+        //     const int input_offset =
+        //         in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+        //     const int filter_offset =
+        //         multiplier +
+        //         depth_multiplier * (in_d + in_depth * (f_c + filter_offset_temp));
+        //     sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+        //   }
+        // }
+      }
+      else {
+        // Loop on filter radius.
+        int f_idx = 0;
+        UNROLL for (int r = 0 ; r <= radius ; ++r) {
+          UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+            // Input coordinates.
+            const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+            const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+            if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
+              const int input_offset =
+                  in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+              const int filter_offset =
+                  multiplier +
+                  depth_multiplier * (in_d + in_depth * f_idx);
+              sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+            }
+            // Update filter index.
+            ++f_idx;
+          }
         }
       }
+    }
+    else {
+      // Stride > 1. Only downsizing for now! TODO: everything else!
+      const int in_r = input_row_center;
+      const int in_c = input_col_center + out_row_sign * (stride - 1);
+      // Zero padding?
+      if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
+        const int input_offset =
+                  in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+        sum = ldg(input + input_offset);
+      }
+      // TODO: symmetric padding for outside values? Not loosing as much information.
     }
     // output[thread_id] = static_cast<T>(0);
     output[thread_id] = sum;
