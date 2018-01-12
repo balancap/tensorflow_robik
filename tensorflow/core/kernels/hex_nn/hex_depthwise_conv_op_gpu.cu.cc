@@ -289,50 +289,50 @@ __global__ void __launch_bounds__(640, 2)
     }
     in_backprop[thread_id] = sum;
 
-//     // Compute the indexes of this thread in the output.
-//     const int in_d = thread_id % in_depth;
-//     const int in_c = (thread_id / in_depth) % in_cols;
-//     const int in_r = (thread_id / in_depth / in_cols) % in_rows;
-//     const int b = thread_id / in_depth / in_cols / in_rows;
+    //     // Compute the indexes of this thread in the output.
+    //     const int in_d = thread_id % in_depth;
+    //     const int in_c = (thread_id / in_depth) % in_cols;
+    //     const int in_r = (thread_id / in_depth / in_cols) % in_rows;
+    //     const int b = thread_id / in_depth / in_cols / in_rows;
 
-//     // Output coordinates...
-//     const int o_row_start = in_c * stride - pad_rows;
-//     const int o_col_start = in_c * stride - pad_cols;
-//     const int o_row_end = o_row_start + filter_rows;
-//     const int o_col_end = o_col_start + filter_cols;
-//     // Center coordinates.
-//     const int o_row_center = input_row_start + radius;
-//     const int o_col_center = input_col_start + radius;
-//     const int o_row_sign = input_row_center % 2;
+    //     // Output coordinates...
+    //     const int o_row_start = in_c * stride - pad_rows;
+    //     const int o_col_start = in_c * stride - pad_cols;
+    //     const int o_row_end = o_row_start + filter_rows;
+    //     const int o_col_end = o_col_start + filter_cols;
+    //     // Center coordinates.
+    //     const int o_row_center = input_row_start + radius;
+    //     const int o_col_center = input_col_start + radius;
+    //     const int o_row_sign = input_row_center % 2;
 
-//     T sum = static_cast<T>(0);
-//     // ELEMENTS_GRAD
-//     const int out_r_start =
-//         tf_max<int>(0, (in_r - filter_rows + pad_rows + stride) / stride);
-//     const int out_r_end = tf_min(out_rows - 1, (in_r + pad_rows) / stride);
-//     const int out_c_start =
-//         tf_max(0, (in_c - filter_cols + pad_cols + stride) / stride);
-//     const int out_c_end = tf_min(out_cols - 1, (in_c + pad_cols) / stride);
+    //     T sum = static_cast<T>(0);
+    //     // ELEMENTS_GRAD
+    //     const int out_r_start =
+    //         tf_max<int>(0, (in_r - filter_rows + pad_rows + stride) / stride);
+    //     const int out_r_end = tf_min(out_rows - 1, (in_r + pad_rows) / stride);
+    //     const int out_c_start =
+    //         tf_max(0, (in_c - filter_cols + pad_cols + stride) / stride);
+    //     const int out_c_end = tf_min(out_cols - 1, (in_c + pad_cols) / stride);
 
-//     NOUNROLL for (int out_r = out_r_start; out_r <= out_r_end; ++out_r) {
-//       const int f_r = in_r + pad_rows - out_r * stride;
-//       NOUNROLL for (int out_c = out_c_start; out_c <= out_c_end; ++out_c) {
-//         const int f_c = in_c + pad_cols - out_c * stride;
-//         int filter_offset =
-//             depth_multiplier * (in_d + in_depth * (f_c + filter_cols * f_r));
-//         const int out_backprop_offset =
-//             out_depth * out_c + out_depth * out_cols * (out_r + out_rows * b);
-// #pragma unroll 6
-//         for (int i = 0; i < depth_multiplier; ++i) {
-//           sum += ldg(out_backprop + out_backprop_offset +
-//                      in_d * depth_multiplier + i) *
-//                  ldg(filter + filter_offset + i);
-//         }
-//       }
-//     }
-//     const int in_backprop_offset =
-//         in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
-//     in_backprop[in_backprop_offset] = sum;
+    //     NOUNROLL for (int out_r = out_r_start; out_r <= out_r_end; ++out_r) {
+    //       const int f_r = in_r + pad_rows - out_r * stride;
+    //       NOUNROLL for (int out_c = out_c_start; out_c <= out_c_end; ++out_c) {
+    //         const int f_c = in_c + pad_cols - out_c * stride;
+    //         int filter_offset =
+    //             depth_multiplier * (in_d + in_depth * (f_c + filter_cols * f_r));
+    //         const int out_backprop_offset =
+    //             out_depth * out_c + out_depth * out_cols * (out_r + out_rows * b);
+    // #pragma unroll 6
+    //         for (int i = 0; i < depth_multiplier; ++i) {
+    //           sum += ldg(out_backprop + out_backprop_offset +
+    //                      in_d * depth_multiplier + i) *
+    //                  ldg(filter + filter_offset + i);
+    //         }
+    //       }
+    //     }
+    //     const int in_backprop_offset =
+    //         in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
+    //     in_backprop[in_backprop_offset] = sum;
   }
 }
 
@@ -381,7 +381,7 @@ __global__ void __launch_bounds__(640, 2)
     // Input center coordinates.
     const int input_row_center = in_r_start + radius;
     const int input_col_center = in_c_start + radius;
-    const int input_row_sign = input_row_center % 2;
+    const int out_row_sign = out_r % 2;
 
     const int out_backprop_offset =
         out_d + out_depth * (out_c + out_cols * (out_r + out_rows * b));
@@ -394,11 +394,11 @@ __global__ void __launch_bounds__(640, 2)
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
           // Input coordinates.
-          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
-          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx];
 
           const int input_offset =
-              in_d + in_depth * (in_c + in_cols * (in_r + in_cols * (in_r + in_rows * b)));
+              in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
           T partial_sum = ldg(input + input_offset) * out_bp;
           T* addr = filter_backprop + (dm + depth_multiplier * (in_d + in_depth * f_idx));
           CudaAtomicAdd(addr, partial_sum);
@@ -426,12 +426,12 @@ __global__ void __launch_bounds__(640, 2)
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
           // Input coordinates.
-          const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
-          const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+          const int in_r = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx];
+          const int in_c = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx];
 
           if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
             const int input_offset =
-                in_d + in_depth * (in_c + in_cols * (in_r + in_cols * (in_r + in_rows * b)));
+                in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
             T partial_sum = ldg(input + input_offset) * out_bp;
             T* addr = filter_backprop +
                       (dm + depth_multiplier * (in_d + in_depth * f_idx));
