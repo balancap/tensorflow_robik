@@ -137,6 +137,7 @@ struct HexDepthwiseConv2DKernel {
           base_output_index + output_vectorized_size;
       for (int j = 0; j < output_scalar_size; ++j) {
         output[last_output_index + j] = out_buf[j];
+        output[last_output_index + j] = static_cast<T>(0);
       }
     }
   }
@@ -309,7 +310,6 @@ class HexDepthwiseConv2dNativeOp : public BinaryOp<T> {
     OP_REQUIRES(context, filter.dims() == 4,
                 errors::InvalidArgument("filter must be 4-dimensional: ",
                                         filter.shape().DebugString()));
-
     // in_depth for input and filter must match.
     const int64 in_depth = GetTensorDim(input, data_format_, 'C');
     OP_REQUIRES(
@@ -319,7 +319,6 @@ class HexDepthwiseConv2dNativeOp : public BinaryOp<T> {
 
     // The last dimension for filter is depth multiplier.
     const int32 depth_multiplier = filter.dim_size(3);
-
     // The output depth is input depth x depth multipler
     const int32 out_depth = in_depth * depth_multiplier;
 
@@ -361,30 +360,19 @@ class HexDepthwiseConv2dNativeOp : public BinaryOp<T> {
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
 
-    VLOG(2) << "HexDepthwiseConv2DNative: "
+    LOG(INFO) << "HexDepthwiseConv2dNative: "
             << " Input: [" << batch << ", " << input_rows << ", " << input_cols
             << ", " << in_depth << "]; Filter: [" << filter_rows << ", "
             << filter_cols << ", " << in_depth << ", " << depth_multiplier
             << "]; stride = " << stride_ << ", pad_rows = " << pad_rows
             << ", pad_cols = " << pad_cols << ", output: [" << batch << ", "
-            << out_rows << ", " << out_cols << ", " << out_depth << "]";
+            << out_rows << ", " << out_cols << ", " << out_depth << "]"
+            << ", GPU device: " << std::is_same<Device, GPUDevice>::value;
 
     // If there is nothing to compute, return.
     if (out_shape.num_elements() == 0) {
       return;
     }
-
-    // If in_depth==1, this operation is just a standard convolution, so
-    // invoke that op.
-    if (std::is_same<T, float>::value && in_depth == 1) {
-      // TODO(yangzihao): Send in arbitrary dilation rates after the dilated
-      // conv is supported.
-      launcher_(context, use_cudnn_, cudnn_use_autotune_, input, filter,
-                /*row_dilation=*/1, /*col_dilation=*/1, stride_, stride_,
-                padding_, output, data_format_);
-      return;
-    }
-
     HexDepthwiseArgs args;
     args.batch = batch;
     args.in_rows = input_rows;
@@ -422,30 +410,29 @@ class HexDepthwiseConv2dNativeOp : public BinaryOp<T> {
   TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2dNativeOp);
 };
 
+/** CPU kernels no implemented yet!
+ * Weird BUG: CPU kernel called even if GPU kernel exists?
+ */
 #define REGISTER_CPU_KERNEL(T)                                                 \
   REGISTER_KERNEL_BUILDER(                                                     \
       Name("HexDepthwiseConv2dNative").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
       HexDepthwiseConv2dNativeOp<CPUDevice, T>);
-
-TF_CALL_half(REGISTER_CPU_KERNEL);
-TF_CALL_float(REGISTER_CPU_KERNEL);
+// TF_CALL_half(REGISTER_CPU_KERNEL);
+// TF_CALL_float(REGISTER_CPU_KERNEL);
 #if !defined(PLATFORM_WINDOWS) || !defined(_DEBUG)
-TF_CALL_double(REGISTER_CPU_KERNEL);
+// TF_CALL_double(REGISTER_CPU_KERNEL);
 #endif
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(
     Name("HexDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
     HexDepthwiseConv2dNativeOp<GPUDevice, Eigen::half>);
-
 REGISTER_KERNEL_BUILDER(
     Name("HexDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<float>("T"),
     HexDepthwiseConv2dNativeOp<GPUDevice, float>);
-
-REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2dNative")
-                            .Device(DEVICE_GPU)
-                            .TypeConstraint<double>("T"),
-                        HexDepthwiseConv2dNativeOp<GPUDevice, double>);
+REGISTER_KERNEL_BUILDER(
+    Name("HexDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<double>("T"),
+    HexDepthwiseConv2dNativeOp<GPUDevice, double>);
 #endif
 
 }  // namespace tensorflow

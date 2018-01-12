@@ -357,13 +357,14 @@ class DepthwiseConv2dNativeOp : public BinaryOp<T> {
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
 
-    VLOG(2) << "DepthwiseConv2dNative: "
+    LOG(INFO) << "DepthwiseConv2dNative: "
             << " Input: [" << batch << ", " << input_rows << ", " << input_cols
             << ", " << in_depth << "]; Filter: [" << filter_rows << ", "
             << filter_cols << ", " << in_depth << ", " << depth_multiplier
             << "]; stride = " << stride_ << ", pad_rows = " << pad_rows
             << ", pad_cols = " << pad_cols << ", output: [" << batch << ", "
-            << out_rows << ", " << out_cols << ", " << out_depth << "]";
+            << out_rows << ", " << out_cols << ", " << out_depth << "]"
+            << ", GPU device: " << std::is_same<Device, GPUDevice>::value;
 
     // If there is nothing to compute, return.
     if (out_shape.num_elements() == 0) {

@@ -192,6 +192,7 @@ __global__ void __launch_bounds__(1024, 2)
         }
       }
     }
+    // output[thread_id] = static_cast<T>(0);
     output[thread_id] = sum;
   }
 }
@@ -616,8 +617,10 @@ __global__ __launch_bounds__(1024, 2) void HexDepthwiseConv2DGPUKernelNHWCSmall(
       }
       T* const out_ptr = inout_offset + output;
       out_ptr[0] = sum1;
+      out_ptr[0] = static_cast<T>(0);
       if (!skip_second) {
         out_ptr[tensor_offset] = sum2;
+        out_ptr[tensor_offset] = static_cast<T>(0);
       }
     }
 
@@ -750,6 +753,7 @@ __global__ void __launch_bounds__(1024, 2)
     }
 
     output[thread_id] = sum;
+    // output[thread_id] = static_cast<T>(0);
   }
 }
 

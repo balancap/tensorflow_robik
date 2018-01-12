@@ -1369,19 +1369,25 @@ def hex_depthwise_conv2d(input,
     if rate is None:
       rate = [1, 1]
 
-    def op(input_converted, _, padding):
-      return nn_ops.hex_depthwise_conv2d_native(
-          input=input_converted,
-          filter=filter,
-          strides=strides,
-          padding=padding,
-          data_format=data_format,
-          name=name)
-
-    return nn_ops.with_space_to_batch(
+    # def op(input_converted, _, padding):
+    #   return nn_ops.hex_depthwise_conv2d_native(
+    #       input=input_converted,
+    #       filter=filter,
+    #       strides=strides,
+    #       padding=padding,
+    #       data_format=data_format,
+    #       name=name)
+    # return nn_ops.with_space_to_batch(
+    #     input=input,
+    #     filter_shape=array_ops.shape(filter),
+    #     dilation_rate=rate,
+    #     padding=padding,
+    #     data_format=data_format,
+    #     op=op)
+    return nn_ops.hex_depthwise_conv2d_native(
         input=input,
-        filter_shape=array_ops.shape(filter),
-        dilation_rate=rate,
+        filter=filter,
+        strides=strides,
         padding=padding,
         data_format=data_format,
-        op=op)
+        name=name)
