@@ -594,14 +594,15 @@ class HexDepthwiseConv2dNativeBackpropInputOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2dNativeBackpropInputOp);
 };
 
+/** TODO: implement CPU kernels. */
 #define REGISTER_CPU_KERNEL(T)                          \
   REGISTER_KERNEL_BUILDER(                              \
       Name("HexDepthwiseConv2dNativeBackpropInput")     \
           .Device(DEVICE_CPU)                           \
           .TypeConstraint<T>("T"),                      \
       HexDepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
-TF_CALL_float(REGISTER_CPU_KERNEL);
-TF_CALL_double(REGISTER_CPU_KERNEL);
+// TF_CALL_float(REGISTER_CPU_KERNEL);
+// TF_CALL_double(REGISTER_CPU_KERNEL);
 #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
@@ -972,14 +973,15 @@ class HexDepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2dNativeBackpropFilterOp);
 };
 
+/** TODO: implement CPU kernels. */
 #define REGISTER_CPU_KERNEL(T)                    \
   REGISTER_KERNEL_BUILDER(                        \
       Name("HexDepthwiseConv2dNativeBackpropFilter") \
           .Device(DEVICE_CPU)                     \
           .TypeConstraint<T>("T"),                \
       HexDepthwiseConv2dNativeBackpropFilterOp<CPUDevice, T>);
-TF_CALL_float(REGISTER_CPU_KERNEL);
-TF_CALL_double(REGISTER_CPU_KERNEL);
+// TF_CALL_float(REGISTER_CPU_KERNEL);
+// TF_CALL_double(REGISTER_CPU_KERNEL);
 #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
