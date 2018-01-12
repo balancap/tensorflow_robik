@@ -514,8 +514,7 @@ static void DepthwiseConvBackpropInputReference(const HexDepthwiseArgs& args,
 
 #if GOOGLE_CUDA
 
-extern template struct LaunchHexDepthwiseConvBackpropInputOp<GPUDevice,
-                                                          Eigen::half>;
+extern template struct LaunchHexDepthwiseConvBackpropInputOp<GPUDevice, Eigen::half>;
 extern template struct LaunchHexDepthwiseConvBackpropInputOp<GPUDevice, float>;
 extern template struct LaunchHexDepthwiseConvBackpropInputOp<GPUDevice, double>;
 
@@ -595,22 +594,23 @@ class HexDepthwiseConv2dNativeBackpropInputOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(HexDepthwiseConv2dNativeBackpropInputOp);
 };
 
-#define REGISTER_CPU_KERNEL(T)                                       \
-  REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2dNativeBackpropInput") \
-                              .Device(DEVICE_CPU)                    \
-                              .TypeConstraint<T>("T"),               \
-                          HexDepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
+#define REGISTER_CPU_KERNEL(T)                          \
+  REGISTER_KERNEL_BUILDER(                              \
+      Name("HexDepthwiseConv2dNativeBackpropInput")     \
+          .Device(DEVICE_CPU)                           \
+          .TypeConstraint<T>("T"),                      \
+      HexDepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
 TF_CALL_float(REGISTER_CPU_KERNEL);
 TF_CALL_double(REGISTER_CPU_KERNEL);
 #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
-REGISTER_KERNEL_BUILDER(Name("HexDepthwiseConv2dNativeBackpropInput")
-                            .Device(DEVICE_GPU)
-                            .TypeConstraint<float>("T")
-                            .HostMemory("input_sizes"),
-                        HexDepthwiseConv2dNativeBackpropInputOp<GPUDevice, float>);
-
+REGISTER_KERNEL_BUILDER(
+    Name("HexDepthwiseConv2dNativeBackpropInput")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<float>("T")
+        .HostMemory("input_sizes"),
+    HexDepthwiseConv2dNativeBackpropInputOp<GPUDevice, float>);
 REGISTER_KERNEL_BUILDER(
     Name("HexDepthwiseConv2dNativeBackpropInput")
         .Device(DEVICE_GPU)
@@ -890,8 +890,7 @@ static void HexDepthwiseConvBackpropFilterReference(const HexDepthwiseArgs& args
 
 #if GOOGLE_CUDA
 
-extern template struct LaunchHexDepthwiseConvBackpropFilterOp<GPUDevice,
-                                                           Eigen::half>;
+extern template struct LaunchHexDepthwiseConvBackpropFilterOp<GPUDevice, Eigen::half>;
 extern template struct LaunchHexDepthwiseConvBackpropFilterOp<GPUDevice, float>;
 extern template struct LaunchHexDepthwiseConvBackpropFilterOp<GPUDevice, double>;
 
