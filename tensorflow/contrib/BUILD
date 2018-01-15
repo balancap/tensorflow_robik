@@ -40,7 +40,7 @@ py_library(
         "//tensorflow/contrib/gan",
         "//tensorflow/contrib/graph_editor:graph_editor_py",
         "//tensorflow/contrib/grid_rnn:grid_rnn_py",
-        # "//tensorflow/contrib/hex_layers:hex_nn_py",
+        "//tensorflow/contrib/hex_layers:hex_layers_py",
         "//tensorflow/contrib/hooks",
         "//tensorflow/contrib/image:distort_image_py",
         "//tensorflow/contrib/image:image_py",
