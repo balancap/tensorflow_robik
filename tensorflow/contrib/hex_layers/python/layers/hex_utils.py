@@ -80,3 +80,48 @@ def hex_downscale2d(
                                            sc.original_name_scope, outputs)
 
 
+@add_arg_scope
+def hex_from_cartesian(
+        inputs,
+        method=ResizeMethod.BILINEAR,
+        extend=True,
+        outputs_collections=None,
+        reuse=None,
+        data_format='NHWC',
+        scope=None):
+    """Transform a cartesian Tensor to an hexagonal Tensor (NHWC input format).
+
+    The width of the tensor is extended to reflect the different geometry of
+    hexagonal tiling.
+    """
+    with variable_scope.variable_scope(scope, 'HexFromCartesian', [inputs],
+                                       reuse=reuse) as sc:
+        # New shape: expand width to reflect the different geometry.
+        shape = inputs.get_shape().as_list()
+        out_height = int(shape[1] * 2)
+        out_width = int(shape[2] * 2)
+        # Factor sqrt(3) / 2 * a due to hexagonal tiling.
+        if extend:
+            out_height = (int(shape[1] * 2 / 1.15470053838) // 2) * 2
+            # out_width = (int(shape[2] * 2 * 1.15470053838) // 2) * 2
+        # Resize input tensor.
+        outputs = tf.image.resize_images(
+            inputs,
+            [out_height, out_width],
+            method=method,
+            align_corners=False)
+        # Un-stack / re-stack
+        h_axis = 3
+        l_outputs = tf.unstack(outputs, axis=h_axis)
+        for i, v in enumerate(l_outputs):
+            # sub-sample
+            if i % 2 == 0:
+                l_outputs = v[:, :, 0:2:-1]
+            else:
+                l_outputs = v[:, :, 1:2:-1]
+        outputs = tf.stack(l_outputs, axis=h_axis)
+        return utils.collect_named_outputs(outputs_collections,
+                                           sc.original_name_scope, outputs)
+
+
+
