@@ -16,9 +16,9 @@ py_library(
     name = "hex_layers_py",
     srcs = [
         "__init__.py",
-        # "python/losses/__init__.py",
-        # "python/losses/loss_ops.py",
-        # "python/metric_learning/metric_loss_ops.py",
+        "python/layers/__init__.py",
+        "python/layers/hex_conv2d.py",
+        "python/layers/hex_utils.py",
     ],
     srcs_version = "PY2AND3",
     deps = [
