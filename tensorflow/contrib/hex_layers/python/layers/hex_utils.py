@@ -83,7 +83,7 @@ def hex_downscale2d(
 @add_arg_scope
 def hex_from_cartesian(
         inputs,
-        method=ResizeMethod.BILINEAR,
+        method=tf.image.ResizeMethod.BILINEAR,
         extend=True,
         outputs_collections=None,
         reuse=None,
