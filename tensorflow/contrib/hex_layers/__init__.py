@@ -18,6 +18,7 @@
 @@hex_depthwise_convolution2d
 @@hex_dw_conv2d
 @@hex_downscale2d
+@@hex_from_cartesian
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -34,6 +35,7 @@ _allowed_symbols = [
     "hex_depthwise_conv2d",
     "hex_depthwise_convolution2d",
     "hex_dw_conv2d",
+    "hex_from_cartesian",
     # "CudnnGRU",
     # "CudnnLSTM",
     # "CudnnRNNRelu",
