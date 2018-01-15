@@ -250,7 +250,7 @@ __global__ void __launch_bounds__(640, 2)
     const int OR = (thread_id / out_depth / out_cols) % out_rows;
     const int OB = thread_id / out_depth / out_cols / out_rows;
     // Compute the input depth and the index of depth multiplier.
-    const int in_d = OD / depth_multiplier;
+    // const int in_d = OD / depth_multiplier;
     const int multiplier = OD % depth_multiplier;
 
     // Decide if all input is valid, if yes, we can skip the boundary checks
@@ -314,13 +314,14 @@ __global__ void __launch_bounds__(640, 2)
     else {
       // stride > 1: very basic downscaling. TODO: the rest!
       if (in_r % stride == 0) {
-        const int out_row_sign = (in_r / stride) % 2;
+        const int out_row = in_r / stride;
+        const int out_row_sign = out_row % 2;
         const int in_col_delta = (in_c % stride);
+
         if (out_row_sign == in_col_delta) {
-          const int out_r = in_r / stride;
-          const int out_c = in_c / stride;
+          const int out_col = in_c / stride;
           const int out_offset =
-                  in_d + in_depth * (out_c + out_cols * (out_r + out_rows * OB));
+                  in_d + in_depth * (out_col + out_cols * (out_row + out_rows * b));
           sum = ldg(out_backprop + out_offset);
         }
       }
@@ -399,6 +400,11 @@ __global__ void __launch_bounds__(640, 2)
   const int out_rows = args.out_rows;
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
+
+  // Stride > 1: zero gradient. TODO: real implementation!
+  if (stride > 1) {
+    return;
+  }
 
   const int radius = filter_cols / 2;
   CUDA_1D_KERNEL_LOOP(thread_id, num_out_backprop) {
