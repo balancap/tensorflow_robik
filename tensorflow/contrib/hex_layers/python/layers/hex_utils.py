@@ -84,6 +84,7 @@ def hex_downscale2d(
 def hex_from_cartesian(
         inputs,
         method=tf.image.ResizeMethod.BILINEAR,
+        downscale=True,
         extend=True,
         outputs_collections=None,
         reuse=None,
@@ -96,14 +97,22 @@ def hex_from_cartesian(
     """
     with variable_scope.variable_scope(scope, 'HexFromCartesian', [inputs],
                                        reuse=reuse) as sc:
+        inputs = ops.convert_to_tensor(inputs)
         # New shape: expand width to reflect the different geometry.
         shape = inputs.get_shape().as_list()
-        out_height = int(shape[1] * 2)
-        out_width = int(shape[2] * 2)
-        # Factor sqrt(3) / 2 * a due to hexagonal tiling.
-        if extend:
-            out_height = (int(shape[1] * 2 / 1.15470053838) // 2) * 2
-            # out_width = (int(shape[2] * 2 * 1.15470053838) // 2) * 2
+        # Output shape?
+        out_height = int(shape[1])
+        out_width = int(shape[2])
+        if downscale:
+            # Check width is divisible by two.
+            out_width = (out_width // 2) * 2
+        else:
+            out_height = int(shape[1] * 2)
+            out_width = int(shape[2] * 2)
+            # Factor sqrt(3) / 2 * a due to hexagonal tiling.
+            if extend:
+                # out_height = (int(shape[1] * 2 / 1.15470053838) // 2) * 2
+                out_width = (int(shape[2] * 2 * 1.15470053838) // 2) * 2
         # Resize input tensor.
         outputs = tf.image.resize_images(
             inputs,
@@ -111,17 +120,16 @@ def hex_from_cartesian(
             method=method,
             align_corners=False)
         # Un-stack / re-stack
-        h_axis = 3
+        h_axis = 1
         l_outputs = tf.unstack(outputs, axis=h_axis)
+        l_outputs_sub = []
         for i, v in enumerate(l_outputs):
             # sub-sample
-            if i % 2 == 0:
-                l_outputs = v[:, :, 0:2:-1]
-            else:
-                l_outputs = v[:, :, 1:2:-1]
-        outputs = tf.stack(l_outputs, axis=h_axis)
+            if i % 4 == 0:
+                l_outputs_sub.append(v[:, 0::2])
+            elif i % 4 == 2:
+                l_outputs_sub.append(v[:, 1::2])
+        h_axis = 1
+        outputs = tf.stack(l_outputs_sub, axis=h_axis)
         return utils.collect_named_outputs(outputs_collections,
                                            sc.original_name_scope, outputs)
-
-
-
