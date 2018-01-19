@@ -357,7 +357,7 @@ class DepthwiseConv2dNativeOp : public BinaryOp<T> {
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
 
-    LOG(INFO) << "DepthwiseConv2dNative: "
+    VLOG(2) << "DepthwiseConv2dNative: "
             << " Input: [" << batch << ", " << input_rows << ", " << input_cols
             << ", " << in_depth << "]; Filter: [" << filter_rows << ", "
             << filter_cols << ", " << in_depth << ", " << depth_multiplier
