@@ -12,7 +12,7 @@ http_archive(
 
 load("@io_bazel_rules_closure//closure:defs.bzl", "closure_repositories")
 
-closure_repositories()
+# closure_repositories()
 
 load("//tensorflow:workspace.bzl", "tf_workspace")
 

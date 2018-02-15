@@ -34,9 +34,9 @@ def check_version(bazel_version):
   else:
     current_bazel_version = _parse_bazel_version(native.bazel_version)
     minimum_bazel_version = _parse_bazel_version(bazel_version)
-    if minimum_bazel_version > current_bazel_version:
-      fail("\nCurrent Bazel version is {}, expected at least {}\n".format(
-          native.bazel_version, bazel_version))
+    # if minimum_bazel_version > current_bazel_version:
+    #   fail("\nCurrent Bazel version is {}, expected at least {}\n".format(
+    #       native.bazel_version, bazel_version))
 
 # If TensorFlow is linked as a submodule.
 # path_prefix is no longer used.
