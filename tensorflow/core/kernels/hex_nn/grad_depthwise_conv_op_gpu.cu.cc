@@ -68,6 +68,7 @@ __global__ void __launch_bounds__(1024, 2)
   const int out_rows = args.out_rows;
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
+  const int radius = out_rows / 2;
 
   CUDA_1D_KERNEL_LOOP(thread_id, num_outputs) {
     // Compute the indexes of this thread in the output.
@@ -85,10 +86,17 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_col_start = OC * stride - pad_cols;
     const int input_row_end = input_row_start + filter_rows;
     const int input_col_end = input_col_start + filter_cols;
+    const int input_row_center = input_row_start + radius;
+    const int input_col_center = input_col_start + radius;
 
+    // Additional center drift...
     T sum = static_cast<T>(0);
+    T sum_center = static_cast<T>(0);
 
     const int input_offset_temp = in_rows * OB;
+    const int input_offset_center =
+        in_d + in_depth * (input_col_center + in_cols * (input_row_center + input_offset_temp));
+
     if (input_row_start >= 0 && input_col_start >= 0 &&
         input_row_end < in_rows && input_col_end < in_cols) {
       UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
@@ -96,12 +104,15 @@ __global__ void __launch_bounds__(1024, 2)
         const int filter_offset_temp = filter_cols * f_r;
         UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
           const int in_c = input_col_start + f_c;
-
           const int input_offset =
               in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
           const int filter_offset =
               multiplier +
               depth_multiplier * (in_d + in_depth * (f_c + filter_offset_temp));
+          // Center offset???
+          if (f_r != radius && f_c != radius) {
+            sum_center += ldg(input + input_offset_center) * ldg(filter + filter_offset);
+          }
           sum += ldg(input + input_offset) * ldg(filter + filter_offset);
         }
       }
@@ -119,12 +130,16 @@ __global__ void __launch_bounds__(1024, 2)
             const int filter_offset =
                 multiplier + depth_multiplier *
                                  (in_d + in_depth * (f_c + filter_offset_temp));
+            // Center offset???
+            if (f_r != radius && f_c != radius) {
+              sum_center += ldg(input + input_offset_center) * ldg(filter + filter_offset);
+            }
             sum += ldg(input + input_offset) * ldg(filter + filter_offset);
           }
         }
       }
     }
-    output[thread_id] = sum;
+    output[thread_id] = (sum - sum_center);
   }
 }
 
