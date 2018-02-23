@@ -68,7 +68,7 @@ __global__ void __launch_bounds__(1024, 2)
   const int out_rows = args.out_rows;
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
-  const int radius = out_rows / 2;
+  const int radius = filter_rows / 2;
 
   CUDA_1D_KERNEL_LOOP(thread_id, num_outputs) {
     // Compute the indexes of this thread in the output.
@@ -166,6 +166,7 @@ __global__ void __launch_bounds__(640, 2)
   const int out_rows = args.out_rows;
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
+  const int radius = filter_rows / 2;
 
   CUDA_1D_KERNEL_LOOP(thread_id, num_in_backprop) {
     // Compute the indexes of this thread in the output.
@@ -174,7 +175,9 @@ __global__ void __launch_bounds__(640, 2)
     const int in_r = (thread_id / in_depth / in_cols) % in_rows;
     const int b = thread_id / in_depth / in_cols / in_rows;
 
+    // Center drift in gradient...
     T sum = static_cast<T>(0);
+    T sum_center = static_cast<T>(0);
 
     const int out_r_start =
         tf_max<int>(0, (in_r - filter_rows + pad_rows + stride) / stride);
@@ -182,6 +185,12 @@ __global__ void __launch_bounds__(640, 2)
     const int out_c_start =
         tf_max(0, (in_c - filter_cols + pad_cols + stride) / stride);
     const int out_c_end = tf_min(out_cols - 1, (in_c + pad_cols) / stride);
+    // Dirty. Assuming stride = 1.
+    const int out_r_center = in_r;
+    const int out_c_center = in_c;
+    // Center offset...
+    const int out_backprop_offset_center  =
+            out_depth * out_c_center + out_depth * out_cols * (out_r_center + out_rows * b);;
 
     NOUNROLL for (int out_r = out_r_start; out_r <= out_r_end; ++out_r) {
       const int f_r = in_r + pad_rows - out_r * stride;
@@ -194,17 +203,24 @@ __global__ void __launch_bounds__(640, 2)
             depth_multiplier * (in_d + in_depth * (f_c + temp_filter_offset));
         const int out_backprop_offset =
             out_depth * out_c + temp_out_backprop_offset;
+
 #pragma unroll 6
         for (int i = 0; i < depth_multiplier; ++i) {
           sum += ldg(out_backprop + out_backprop_offset +
                      in_d * depth_multiplier + i) *
                  ldg(filter + filter_offset + i);
+          // Center drift?
+          if (f_c != radius && f_r != radius) {
+            sum_center += ldg(out_backprop + out_backprop_offset_center +
+                     in_d * depth_multiplier + i) *
+                 ldg(filter + filter_offset + i);
+          }
         }
       }
     }
     const int in_backprop_offset =
         in_d + in_depth * (in_c + in_cols * (in_r + in_rows * b));
-    in_backprop[in_backprop_offset] = sum;
+    in_backprop[in_backprop_offset] = sum - sum_center;
   }
 }
 
