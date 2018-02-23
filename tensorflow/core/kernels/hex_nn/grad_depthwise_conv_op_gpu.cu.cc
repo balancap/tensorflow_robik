@@ -248,6 +248,7 @@ __global__ void __launch_bounds__(640, 2)
   const int out_rows = args.out_rows;
   const int out_cols = args.out_cols;
   const int out_depth = args.out_depth;
+  const int radius = filter_rows / 2;
 
   CUDA_1D_KERNEL_LOOP(thread_id, num_out_backprop) {
     // Compute the indexes of this thread in the output.
@@ -265,7 +266,11 @@ __global__ void __launch_bounds__(640, 2)
     const int in_c_start = out_c * stride - pad_cols;
     const int in_r_end = in_r_start + filter_rows;
     const int in_c_end = in_c_start + filter_cols;
+    const int in_r_center = in_r_start + radius;
+    const int in_c_center = in_c_start + radius;
 
+    const int input_offset_c =
+        in_d + in_depth * (in_c_center + in_cols * (in_r_center + in_rows * b));
     const int out_backprop_offset =
         out_d + out_depth * (out_c + out_cols * (out_r + out_rows * b));
     const T out_bp = ldg(out_backprop + out_backprop_offset);
@@ -280,6 +285,10 @@ __global__ void __launch_bounds__(640, 2)
 
           const int input_offset = in_d + in_depth * (in_c + input_offset_temp);
           T partial_sum = ldg(input + input_offset) * out_bp;
+          // Center offset...
+          if (f_c != radius && f_r != radius) {
+            partial_sum -= ldg(input + input_offset_c) * out_bp;
+          }
           T* addr = filter_backprop +
                     (dm + depth_multiplier *
                               (in_d + in_depth * (f_c + filter_cols * f_r)));
@@ -299,6 +308,10 @@ __global__ void __launch_bounds__(640, 2)
             const int input_offset =
                 in_d + in_depth * (in_c + input_offset_temp);
             T partial_sum = ldg(input + input_offset) * out_bp;
+            // Center offset...
+            if (f_c != radius && f_r != radius) {
+              partial_sum -= ldg(input + input_offset_c) * out_bp;
+            }
             T* addr =
                 filter_backprop +
                 (dm + depth_multiplier * (in_d + in_depth * (f_c + addr_temp)));
