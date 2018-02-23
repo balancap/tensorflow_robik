@@ -421,16 +421,16 @@ class GradDepthwiseConv2dNativeOp : public BinaryOp<T> {
   TF_DISALLOW_COPY_AND_ASSIGN(GradDepthwiseConv2dNativeOp);
 };
 
+// Remove CPU implementation...
 #define REGISTER_CPU_KERNEL(T)                                                 \
   REGISTER_KERNEL_BUILDER(                                                     \
       Name("GradDepthwiseConv2dNative").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
       GradDepthwiseConv2dNativeOp<CPUDevice, T>);
-
-TF_CALL_half(REGISTER_CPU_KERNEL);
-TF_CALL_float(REGISTER_CPU_KERNEL);
-#if !defined(PLATFORM_WINDOWS) || !defined(_DEBUG)
-TF_CALL_double(REGISTER_CPU_KERNEL);
-#endif
+// TF_CALL_half(REGISTER_CPU_KERNEL);
+// TF_CALL_float(REGISTER_CPU_KERNEL);
+// #if !defined(PLATFORM_WINDOWS) || !defined(_DEBUG)
+// TF_CALL_double(REGISTER_CPU_KERNEL);
+// #endif
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(

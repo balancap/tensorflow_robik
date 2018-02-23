@@ -594,14 +594,14 @@ class GradDepthwiseConv2dNativeBackpropInputOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(GradDepthwiseConv2dNativeBackpropInputOp);
 };
 
-#define REGISTER_CPU_KERNEL(T)                                       \
-  REGISTER_KERNEL_BUILDER(Name("GradDepthwiseConv2dNativeBackpropInput") \
-                              .Device(DEVICE_CPU)                    \
-                              .TypeConstraint<T>("T"),               \
-                          GradDepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
-TF_CALL_float(REGISTER_CPU_KERNEL);
-TF_CALL_double(REGISTER_CPU_KERNEL);
-#undef REGISTER_CPU_KERNEL
+// #define REGISTER_CPU_KERNEL(T)                                       \
+//   REGISTER_KERNEL_BUILDER(Name("GradDepthwiseConv2dNativeBackpropInput") \
+//                               .Device(DEVICE_CPU)                    \
+//                               .TypeConstraint<T>("T"),               \
+//                           GradDepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
+// TF_CALL_float(REGISTER_CPU_KERNEL);
+// TF_CALL_double(REGISTER_CPU_KERNEL);
+// #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(Name("GradDepthwiseConv2dNativeBackpropInput")
@@ -972,15 +972,15 @@ class GradDepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(GradDepthwiseConv2dNativeBackpropFilterOp);
 };
 
-#define REGISTER_CPU_KERNEL(T)                    \
-  REGISTER_KERNEL_BUILDER(                        \
-      Name("GradDepthwiseConv2dNativeBackpropFilter") \
-          .Device(DEVICE_CPU)                     \
-          .TypeConstraint<T>("T"),                \
-      GradDepthwiseConv2dNativeBackpropFilterOp<CPUDevice, T>);
-TF_CALL_float(REGISTER_CPU_KERNEL);
-TF_CALL_double(REGISTER_CPU_KERNEL);
-#undef REGISTER_CPU_KERNEL
+// #define REGISTER_CPU_KERNEL(T)                    \
+//   REGISTER_KERNEL_BUILDER(                        \
+//       Name("GradDepthwiseConv2dNativeBackpropFilter") \
+//           .Device(DEVICE_CPU)                     \
+//           .TypeConstraint<T>("T"),                \
+//       GradDepthwiseConv2dNativeBackpropFilterOp<CPUDevice, T>);
+// TF_CALL_float(REGISTER_CPU_KERNEL);
+// TF_CALL_double(REGISTER_CPU_KERNEL);
+// #undef REGISTER_CPU_KERNEL
 
 #if GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(
