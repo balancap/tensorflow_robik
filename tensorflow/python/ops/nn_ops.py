@@ -2546,3 +2546,20 @@ def _calc_hex_depthwise_conv_flops(graph, node):
   output_count = np.prod(output_shape.as_list())
   return ops.OpStats("flops", (output_count * filter_height * filter_width * 2))
 
+# --------------------------------------------------------------------------
+# Hexagonal ops.
+# --------------------------------------------------------------------------
+@ops.RegisterStatistics("GradDepthwiseConv2dNative", "flops")
+def _calc_grad_depthwise_conv_flops(graph, node):
+  """Calculates the compute resources needed for HexDepthwiseConv2dNative."""
+  input_shape = graph_util.tensor_shape_from_node_def_name(graph, node.input[0])
+  input_shape.assert_is_fully_defined()
+  filter_shape = graph_util.tensor_shape_from_node_def_name(graph,
+                                                            node.input[1])
+  filter_shape.assert_is_fully_defined()
+  output_shape = graph_util.tensor_shape_from_node_def_name(graph, node.name)
+  output_shape.assert_is_fully_defined()
+  filter_height = int(filter_shape[0])
+  filter_width = int(filter_shape[1])
+  output_count = np.prod(output_shape.as_list())
+  return ops.OpStats("flops", (output_count * filter_height * filter_width * 2))
