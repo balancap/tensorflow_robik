@@ -491,7 +491,7 @@ class HexRotDepthwiseConv2dNativeBackpropInputOp : public OpKernel {
       return;
     }
     LaunchHexRotDepthwiseConvBackpropInputOp<Device, T>()(
-        context, args, out_backprop_ptr, filter_ptr, in_backprop_ptr,
+        context, args, out_backprop_ptr, filter_ptr, nullptr, in_backprop_ptr,
         data_format_);
   }
 
@@ -753,7 +753,7 @@ class HexRotDepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
       return;
     }
     LaunchHexRotDepthwiseConvBackpropFilterOp<Device, T>()(
-        context, args, out_backprop_ptr, input_ptr, filter_backprop_ptr,
+        context, args, out_backprop_ptr, input_ptr, nullptr, filter_backprop_ptr,
         data_format_);
   }
 

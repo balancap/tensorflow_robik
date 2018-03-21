@@ -62,21 +62,25 @@ class OpKernelContext;
 template <typename Device, typename T>
 struct LaunchHexRotDepthwiseConvOp {
   void operator()(OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* input, const T* filter, T* output,
+                  const T* input, const T* filter, const T* rotation, T* output,
                   TensorFormat data_format);
 };
-
 template <typename Device, typename T>
 struct LaunchHexRotDepthwiseConvBackpropInputOp {
   void operator()(OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* out_backprop, const T* filter, T* in_backprop,
+                  const T* out_backprop, const T* filter, const T* rotation, T* in_backprop,
                   TensorFormat data_format);
 };
-
 template <typename Device, typename T>
 struct LaunchHexRotDepthwiseConvBackpropFilterOp {
   void operator()(OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* out_backprop, const T* input, T* filter_backprop,
+                  const T* out_backprop, const T* input, const T* rotation, T* filter_backprop,
+                  TensorFormat data_format);
+};
+template <typename Device, typename T>
+struct LaunchHexRotDepthwiseConvBackpropRotationOp {
+  void operator()(OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
+                  const T* out_backprop, const T* input, const T* filter, T* rot_backprop,
                   TensorFormat data_format);
 };
 
@@ -84,23 +88,28 @@ struct LaunchHexRotDepthwiseConvBackpropFilterOp {
 template <typename T>
 struct LaunchHexRotDepthwiseConvOp<Eigen::GpuDevice, T> {
   void operator()(OpKernelContext* ctx, const HexRotDepthwiseArgs args,
-                  const T* input, const T* filter, T* output,
+                  const T* input, const T* filter, const T* rotation, T* output,
                   TensorFormat data_format);
 };
-
 template <typename T>
 struct LaunchHexRotDepthwiseConvBackpropInputOp<Eigen::GpuDevice, T> {
   void operator()(class OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* out_backprop, const T* filter, T* in_backprop,
+                  const T* out_backprop, const T* filter, const T* rotation, T* in_backprop,
                   TensorFormat data_format);
 };
-
 template <typename T>
 struct LaunchHexRotDepthwiseConvBackpropFilterOp<Eigen::GpuDevice, T> {
   void operator()(class OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* out_backprop, const T* input, T* filter_backprop,
+                  const T* out_backprop, const T* input, const T* rotation, T* filter_backprop,
                   TensorFormat data_format);
 };
+template <typename T>
+struct LaunchHexRotDepthwiseConvBackpropRotationOp<Eigen::GpuDevice, T> {
+  void operator()(class OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
+                  const T* out_backprop, const T* input, const T* filter, T* rot_backprop,
+                  TensorFormat data_format);
+};
+
 #endif
 
 }  // namespace tensorflow

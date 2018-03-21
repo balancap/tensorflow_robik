@@ -206,7 +206,7 @@ class HexRotDepthwiseConv2dNativeOp : public BinaryOp<T> {
     auto output_ptr = output->template flat<T>().data();
 
     LaunchHexRotDepthwiseConvOp<Device, T>()(
-        context, args, input_ptr, filter_ptr, output_ptr, data_format_);
+        context, args, input_ptr, filter_ptr, rotation_ptr, output_ptr, data_format_);
   }
 
  private:
