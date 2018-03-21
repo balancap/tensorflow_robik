@@ -506,6 +506,17 @@ __global__ void __launch_bounds__(640, 2)
   }
 }
 
+template <typename T, int kKnownFilterWidth, int kKnownFilterHeight,
+          int kKnownDepthMultiplier>
+__global__ void __launch_bounds__(640, 2)
+    HexRotDepthwiseConv2DBackpropRotationGPUKernelNHWC(const HexRotDepthwiseArgs args,
+                                                    const T* out_backprop,
+                                                    const T* input,
+                                                    const T* filter,
+                                                    T* rot_backprop,
+                                                    int num_rot_backprop) {
+
+}
 // -------------------------------------------------------------------------- //
 // -------------------------------------------------------------------------- //
 // TensorFlow stuff...
@@ -768,20 +779,20 @@ void LaunchHexRotDepthwiseConv2dBackpropRotationGPU(const GpuDevice& d,
                                             const T* filter,
                                             T* rot_backprop,
                                             TensorFormat data_format) {
-  // void (*kernel)(const HexRotDepthwiseArgs, const T*, const T*, const T*, T*, int);
-  // if (data_format == FORMAT_NHWC) {
-  //   kernel = HexRotDepthwiseConv2DBackpropInputGPUKernelNHWC<
-  //       T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
-  // } else {
-  //   assert(false && "Incorrect data format not NHWC.");
-  //   return;
-  // }
-  // const int num_in_backprop =
-  //     args.batch * args.in_rows * args.in_cols * args.in_depth;
-  // CudaLaunchConfig config =
-  //     GetCudaLaunchConfig(num_in_backprop, d, kernel, 0, 0);
-  // kernel<<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-  //     args, out_backprop, filter, rotation, in_backprop, num_in_backprop);
+  void (*kernel)(const HexRotDepthwiseArgs, const T*, const T*, const T*, T*, int);
+  if (data_format == FORMAT_NHWC) {
+    kernel = HexRotDepthwiseConv2DBackpropRotationGPUKernelNHWC<
+        T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
+  } else {
+    assert(false && "Incorrect data format not NHWC.");
+    return;
+  }
+  const int num_rot_backprop =
+      args.batch * args.in_rows * args.in_cols * args.in_depth;
+  CudaLaunchConfig config =
+      GetCudaLaunchConfig(num_rot_backprop, d, kernel, 0, 0);
+  kernel<<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
+      args, out_backprop, input, filter, rot_backprop, num_rot_backprop);
 }
 
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight>
