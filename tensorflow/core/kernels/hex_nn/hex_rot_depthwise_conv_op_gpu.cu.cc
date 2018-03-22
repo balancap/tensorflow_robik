@@ -54,6 +54,7 @@ enum HexRotDepthwiseConv2DDirection { DIRECTION_FORWARD, DIRECTION_BACKWARD };
 #define MAX_NUM_ELEMENTS 19
 /** Number of elements per circle of the filter. */
 __constant__ int NUM_ELEMENTS_RADIUS[4] = {1, 6, 12, 18};
+__constant__ int NUM_ELEMENTS_RADIUS_CUM[4] = {0, 1, 7, 19};
 /** Filter table, started with top-left corner. */
 __constant__ int ELEMENTS_GRAD[MAX_NUM_ELEMENTS] = {
   0,
@@ -139,8 +140,13 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_row_sign = input_row_center % 2;
     const int out_row_sign = OR % 2;
 
-    T sum = static_cast<T>(0);
+    // Rotation input.
     const int input_offset_temp = in_rows * OB;
+    const int rot_offset =
+        in_d + in_depth * (input_col_center + in_cols * (input_row_center + input_offset_temp));
+    T rot_angle = ldg(rotation + rot_offset);
+
+    T sum = static_cast<T>(0);
     // Full implementation only for stride == 1. TODO: merge everything.
     if (stride == 1) {
       if (input_row_start >= 0 && input_col_start >= 0 &&
@@ -148,35 +154,42 @@ __global__ void __launch_bounds__(1024, 2)
         // Loop on filter radius.
         int f_idx = 0;
         UNROLL for (int r = 0 ; r <= radius ; ++r) {
+          // Rotation offsets.
+          const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+          const int rot_upper = rot_lower + 1;
+          const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+
           UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
             // Input coordinates.
             const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
             const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
-
             const int input_offset =
                 in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
-            const int filter_offset =
-                multiplier +
-                depth_multiplier * (in_d + in_depth * f_idx);
-            sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+
+            // Offset the filter with the angle? 0 simple case...
+            if (f_idx == 0) {
+              const int filter_offset = multiplier + depth_multiplier * in_d;
+              sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+            }
+            else {
+              const int f_idx_left =
+                NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
+              const int f_idx_right =
+                NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_upper) % NUM_ELEMENTS_RADIUS[r]);
+              // Complete filter offsets.
+              const int filter_offset_left =
+                  multiplier + depth_multiplier * (in_d + in_depth * f_idx_left);
+              const int filter_offset_right =
+                  multiplier + depth_multiplier * (in_d + in_depth * f_idx_right);
+              // Partial sums!
+              const T input_val = ldg(input + input_offset);
+              sum += input_val * ldg(filter + filter_offset_left) * rot_alpha;
+              sum += input_val * ldg(filter + filter_offset_right) * (1 - rot_alpha);
+            }
             // Update filter index.
             ++f_idx;
           }
         }
-        // UNROLL for (int f_r = 0; f_r < filter_rows; ++f_r) {
-        //   const int in_r = input_row_start + f_r;
-        //   const int filter_offset_temp = filter_cols * f_r;
-        //   UNROLL for (int f_c = 0; f_c < filter_cols; ++f_c) {
-        //     const int in_c = input_col_start + f_c;
-
-        //     const int input_offset =
-        //         in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
-        //     const int filter_offset =
-        //         multiplier +
-        //         depth_multiplier * (in_d + in_depth * (f_c + filter_offset_temp));
-        //     sum += ldg(input + input_offset) * ldg(filter + filter_offset);
-        //   }
-        // }
       }
       else {
         // Loop on filter radius.
@@ -212,7 +225,6 @@ __global__ void __launch_bounds__(1024, 2)
       }
       // TODO: symmetric padding for outside values? Not loosing as much information.
     }
-    // output[thread_id] = static_cast<T>(0);
     output[thread_id] = sum;
   }
 }
@@ -608,7 +620,7 @@ void LaunchHexRotDepthwiseConvOp<GPUDevice, T>::operator()(OpKernelContext* ctx,
               errors::Internal(
                   "Launch of gpu kernel for HexRotDepthwiseConv2DGPULaunch failed"));
 }
-template struct LaunchHexRotDepthwiseConvOp<GPUDevice, Eigen::half>;
+// template struct LaunchHexRotDepthwiseConvOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvOp<GPUDevice, double>;
 
@@ -688,7 +700,7 @@ void LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, T>::operator()(
                                "HexRotDepthwiseConv2DBackpropInp"
                                "utGPULaunch failed"));
 }
-template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, Eigen::half>;
+// template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, double>;
 
@@ -776,7 +788,7 @@ void LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, T>::operator()(
                                "HexRotDepthwiseConv2DBackpropFil"
                                "terGPULaunch failed"));
 }
-template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, Eigen::half>;
+// template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, double>;
 
@@ -857,7 +869,7 @@ void LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, T>::operator()(
                                "HexRotDepthwiseConv2DBackpropRotation"
                                "GPULaunch failed"));
 }
-template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, Eigen::half>;
+// template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, double>;
 

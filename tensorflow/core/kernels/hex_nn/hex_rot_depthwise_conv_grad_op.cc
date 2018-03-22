@@ -157,7 +157,7 @@ typedef Eigen::GpuDevice GPUDevice;
 // -------------------------------------------------------------------------- //
 #if GOOGLE_CUDA
 
-extern template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, Eigen::half>;
+// extern template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, Eigen::half>;
 extern template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, float>;
 extern template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, double>;
 
@@ -264,7 +264,7 @@ struct LaunchHexRotDepthwiseConvBackpropFilterOp;
 
 #if GOOGLE_CUDA
 
-extern template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, Eigen::half>;
+// extern template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, Eigen::half>;
 extern template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, float>;
 extern template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, double>;
 
@@ -371,7 +371,7 @@ REGISTER_KERNEL_BUILDER(
 // -------------------------------------------------------------------------- //
 #if GOOGLE_CUDA
 
-extern template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, Eigen::half>;
+// extern template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, Eigen::half>;
 extern template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, float>;
 extern template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, double>;
 
@@ -471,6 +471,5 @@ REGISTER_KERNEL_BUILDER(
         .HostMemory("input_sizes"),
     HexRotDepthwiseConv2dNativeBackpropRotationOp<GPUDevice, double>);
 #endif  // GOOGLE_CUDA
-
 
 }  // namespace tensorflow

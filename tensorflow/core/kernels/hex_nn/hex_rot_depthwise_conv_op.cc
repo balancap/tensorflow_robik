@@ -62,7 +62,7 @@ extern template class LaunchConv2DOp<CPUDevice, float>;
 #if GOOGLE_CUDA
 
 // Extern template instantiated in depthwise_conv_op_gpu.cc.
-extern template struct LaunchHexRotDepthwiseConvOp<GPUDevice, Eigen::half>;
+// extern template struct LaunchHexRotDepthwiseConvOp<GPUDevice, Eigen::half>;
 extern template struct LaunchHexRotDepthwiseConvOp<GPUDevice, float>;
 extern template struct LaunchHexRotDepthwiseConvOp<GPUDevice, double>;
 // Extern template instantiated in conv_ops.cc.
