@@ -515,8 +515,24 @@ __global__ void __launch_bounds__(640, 2)
                                                     const T* filter,
                                                     T* rot_backprop,
                                                     int num_rot_backprop) {
-
+  const int in_rows = args.in_rows;
+  const int in_cols = args.in_cols;
+  const int in_depth = args.in_depth;
+  const int filter_rows =
+      kKnownFilterHeight < 0 ? args.filter_rows : kKnownFilterHeight;
+  const int filter_cols =
+      kKnownFilterWidth < 0 ? args.filter_cols : kKnownFilterWidth;
+  const int depth_multiplier =
+      kKnownDepthMultiplier < 0 ? args.depth_multiplier : kKnownDepthMultiplier;
+  const int stride = args.stride;
+  const int pad_rows = args.pad_rows;
+  const int pad_cols = args.pad_cols;
+  const int out_rows = args.out_rows;
+  const int out_cols = args.out_cols;
+  const int out_depth = args.out_depth;
 }
+
+
 // -------------------------------------------------------------------------- //
 // -------------------------------------------------------------------------- //
 // TensorFlow stuff...
@@ -672,7 +688,6 @@ void LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, T>::operator()(
                                "HexRotDepthwiseConv2DBackpropInp"
                                "utGPULaunch failed"));
 }
-
 template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvBackpropInputOp<GPUDevice, double>;
@@ -724,7 +739,6 @@ void LaunchHexRotDepthwiseConv2dBackpropFilterGPU(const GpuDevice& d,
         d, args, out_backprop, input, rotation, filter_backprop, data_format);
   }
 }
-
 // A simple launch pad to launch the Cuda kernel for depthwise convolution.
 template <typename T>
 void LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, T>::operator()(
@@ -762,10 +776,10 @@ void LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, T>::operator()(
                                "HexRotDepthwiseConv2DBackpropFil"
                                "terGPULaunch failed"));
 }
-
 template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvBackpropFilterOp<GPUDevice, double>;
+
 
 // -------------------------------------------------------------------------- //
 // Backward Rotation conv2d kernel.
@@ -813,7 +827,6 @@ void LaunchHexRotDepthwiseConv2dBackpropRotationGPU(const GpuDevice& d,
         d, args, out_backprop, input, filter, rot_backprop, data_format);
   }
 }
-
 // A simple launch pad to launch the Cuda kernel for depthwise convolution.
 template <typename T>
 void LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, T>::operator()(
@@ -844,11 +857,9 @@ void LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, T>::operator()(
                                "HexRotDepthwiseConv2DBackpropRotation"
                                "GPULaunch failed"));
 }
-
 template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, Eigen::half>;
 template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, float>;
 template struct LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, double>;
-
 
 }  // namespace tensorflow
 
