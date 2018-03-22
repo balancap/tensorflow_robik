@@ -336,7 +336,7 @@ __global__ void __launch_bounds__(640, 2)
             // Offset the filter with the angle? 0 simple case...
             if (f_idx == 0) {
               const int filter_offset = multiplier + depth_multiplier * in_d;
-              sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+              sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
             }
             else {
               const int f_idx_left =
@@ -366,12 +366,39 @@ __global__ void __launch_bounds__(640, 2)
             // Input coordinates.
             const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
             const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+            // Inside the grid?
             if (in_r >= 0 && in_r < in_rows && in_c >= 0 && in_c < in_cols) {
               const int input_offset =
                   in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
-              const int filter_offset =
-                  multiplier + depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx]);
-              sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
+              // Need to calculate w_{-i}^{x+i}...
+              // First get the angle at position x+i.
+              const int rot_offset = input_offset;
+              T rot_angle = ldg(rotation + rot_offset);
+              // Rotation left and right offsets.
+              const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+              const int rot_upper = rot_lower + 1;
+              const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+
+              // Offset the filter with the angle? 0 simple case...
+              if (f_idx == 0) {
+                const int filter_offset = multiplier + depth_multiplier * in_d;
+                sum += ldg(out_backprop + input_offset) * ldg(filter + filter_offset);
+              }
+              else {
+                const int f_idx_left =
+                  NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
+                const int f_idx_right =
+                  NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_upper) % NUM_ELEMENTS_RADIUS[r]);
+                // Complete filter offsets.
+                const int filter_offset_left =
+                    multiplier + depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx_left]);
+                const int filter_offset_right =
+                    multiplier + depth_multiplier * (in_d + in_depth * ELEMENTS_GRAD[f_idx_right]);
+                // Partial sums!
+                const T output_val = ldg(out_backprop + input_offset);
+                sum += output_val * ldg(filter + filter_offset_left) * rot_alpha;
+                sum += output_val * ldg(filter + filter_offset_right) * (1 - rot_alpha);
+              }
             }
             // Update filter index.
             ++f_idx;
