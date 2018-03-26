@@ -1392,6 +1392,60 @@ def hex_depthwise_conv2d(input,
         data_format=data_format,
         name=name)
 
+# pylint: disable=redefined-builtin
+def hex_rot_depthwise_conv2d(input,
+                             filter,
+                             rotation,
+                             strides,
+                             padding,
+                             rate=None,
+                             name=None,
+                             data_format=None):
+  """Hex. rot. depthwise 2-D convolution.
+
+  Given a 4D input tensor ('NHWC' or 'NCHW' data formats)
+  and a filter tensor of shape
+  `[filter_height, filter_width, in_channels, channel_multiplier]`
+  containing `in_channels` convolutional filters of depth 1, `depthwise_conv2d`
+  applies a different filter to each input channel (expanding from 1 channel
+  to `channel_multiplier` channels for each), then concatenates the results
+  together.  The output has `in_channels * channel_multiplier` channels.
+
+  Args:
+    input: 4-D with shape according to `data_format`.
+    filter: 4-D with shape
+      `[filter_height, filter_width, in_channels, channel_multiplier]`.
+    strides: 1-D of size 4.  The stride of the sliding window for each
+      dimension of `input`.
+    padding: A string, either `'VALID'` or `'SAME'`. The padding algorithm.
+      See the @{tf.nn.convolution$comment here}
+    rate: 1-D of size 2. The dilation rate in which we sample input values
+      across the `height` and `width` dimensions in atrous convolution. If it is
+      greater than 1, then all values of strides must be 1.
+    name: A name for this operation (optional).
+    data_format: The data format for input. Either "NHWC" (default) or "NCHW".
+
+  Returns:
+    A 4-D `Tensor` with shape according to `data_format`.  E.g., for
+    "NHWC" format, shape is
+    `[batch, out_height, out_width, in_channels * channel_multiplier].`
+  """
+  with ops.name_scope(name, "hex_rot_depthwise", [input, filter, rotation]) as name:
+    input = ops.convert_to_tensor(input, name="tensor_in")
+    filter = ops.convert_to_tensor(filter, name="filter_in")
+    rotation = ops.convert_to_tensor(rotation, name="filter_in")
+    if rate is None:
+      rate = [1, 1]
+
+    return nn_ops.hex_rot_depthwise_conv2d_native(
+        input=input,
+        filter=filter,
+        rotation=rotation,
+        strides=strides,
+        padding=padding,
+        data_format=data_format,
+        name=name)
+
 # --------------------------------------------------------------------------
 # Grad dw conv2d.
 # --------------------------------------------------------------------------
