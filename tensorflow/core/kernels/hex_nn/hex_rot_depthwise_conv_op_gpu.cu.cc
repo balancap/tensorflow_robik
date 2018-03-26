@@ -35,6 +35,9 @@ limitations under the License.
 #define NOUNROLL
 #endif
 
+// Rotation offset, no ensure positive angle.
+#define ANGLE_OFFSET static_cast<T>(1.0)
+
 namespace tensorflow {
 
 using Eigen::GpuDevice;
@@ -144,7 +147,7 @@ __global__ void __launch_bounds__(1024, 2)
     const int input_offset_temp = in_rows * OB;
     const int rot_offset =
         in_d + in_depth * (input_col_center + in_cols * (input_row_center + input_offset_temp));
-    T rot_angle = ldg(rotation + rot_offset);
+    const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
 
     T sum = static_cast<T>(0);
     // Full implementation only for stride == 1. TODO: merge everything.
@@ -326,7 +329,7 @@ __global__ void __launch_bounds__(640, 2)
             // Need to calculate w_{-i}^{x+i}...
             // First get the angle at position x+i.
             const int rot_offset = input_offset;
-            T rot_angle = ldg(rotation + rot_offset);
+            const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
 
             // Rotation left and right offsets.
             const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
@@ -373,7 +376,7 @@ __global__ void __launch_bounds__(640, 2)
               // Need to calculate w_{-i}^{x+i}...
               // First get the angle at position x+i.
               const int rot_offset = input_offset;
-              T rot_angle = ldg(rotation + rot_offset);
+              const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
               // Rotation left and right offsets.
               const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
               const int rot_upper = rot_lower + 1;
@@ -484,7 +487,7 @@ __global__ void __launch_bounds__(640, 2)
     const T out_bp = ldg(out_backprop + out_backprop_offset);
     // Rotation input at position y.
     const int rot_offset = out_backprop_offset;
-    T rot_angle = ldg(rotation + rot_offset);
+    const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
 
     if (in_r_start >= 0 && in_c_start >= 0 && in_r_end < in_rows &&
         in_c_end < in_cols) {
@@ -634,7 +637,7 @@ __global__ void __launch_bounds__(640, 2)
     // Rotation angle.
     const int rot_offset =
         in_d + in_depth * (input_col_center + in_cols * (input_row_center + input_offset_temp));
-    T rot_angle = ldg(rotation + rot_offset);
+    const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
 
     // Full implementation only for stride == 1. TODO: merge everything.
     if (stride == 1) {
