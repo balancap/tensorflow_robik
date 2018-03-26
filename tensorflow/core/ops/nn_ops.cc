@@ -3747,6 +3747,83 @@ output: 4-D with shape
 )doc");
 
 // --------------------------------------------------------------------------
+// Hexagonal Rotation operators
+// --------------------------------------------------------------------------
+REGISTER_OP("HexRotDepthwiseConv2dNative")
+    .Input("input: T")
+    .Input("filter: T")
+    .Input("rotation: T")
+    .Output("output: T")
+    .Attr("T: {float, double}")
+    .Attr("strides: list(int)")
+    .Attr(GetPaddingAttrString())
+    .Attr(GetConvnetDataFormatAttrString())
+    .Attr("dilations: list(int) = [1, 1, 1, 1]")
+    .SetShapeFn(shape_inference::DepthwiseConv2DNativeShape)
+    .Doc(R"doc(
+Computes a 2-D depthwise convolution given 4-D `input`, `filter` and
+`rotation` tensors.
+)doc");
+
+REGISTER_OP("HexRotDepthwiseConv2dNativeBackpropInput")
+    .Input("input_sizes: int32")
+    .Input("filter: T")
+    .Input("rotation: T")
+    .Input("out_backprop: T")
+    .Output("output: T")
+    .Attr("T: {float, double}")
+    .Attr("strides: list(int)")
+    .Attr(GetPaddingAttrString())
+    .Attr(GetConvnetDataFormatAttrString())
+    .Attr("dilations: list(int) = [1, 1, 1, 1]")
+    .SetShapeFn([](InferenceContext* c) {
+      ShapeHandle s;
+      TF_RETURN_IF_ERROR(c->MakeShapeFromShapeTensor(0, &s));
+      TF_RETURN_IF_ERROR(c->WithRank(s, 4, &s));
+      c->set_output(0, s);
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Computes the gradients of depthwise convolution with respect to the input.
+)doc");
+REGISTER_OP("HexRotDepthwiseConv2dNativeBackpropFilter")
+    .Input("input: T")
+    .Input("filter_sizes: int32")
+    .Input("rotation: T")
+    .Input("out_backprop: T")
+    .Output("output: T")
+    .Attr("T: {float, double}")
+    .Attr("strides: list(int)")
+    .Attr(GetPaddingAttrString())
+    .Attr(GetConvnetDataFormatAttrString())
+    .Attr("dilations: list(int) = [1, 1, 1, 1]")
+    .SetShapeFn([](InferenceContext* c) {
+      ShapeHandle s;
+      TF_RETURN_IF_ERROR(c->MakeShapeFromShapeTensor(1, &s));
+      TF_RETURN_IF_ERROR(c->WithRank(s, 4, &s));
+      c->set_output(0, s);
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Computes the gradients of depthwise convolution with respect to the filter.
+)doc");
+REGISTER_OP("HexRotDepthwiseConv2dNativeBackpropRotation")
+    .Input("input: T")
+    .Input("filter: T")
+    .Input("rotation: T")
+    .Input("out_backprop: T")
+    .Output("output: T")
+    .Attr("T: {float, double}")
+    .Attr("strides: list(int)")
+    .Attr(GetPaddingAttrString())
+    .Attr(GetConvnetDataFormatAttrString())
+    .Attr("dilations: list(int) = [1, 1, 1, 1]")
+    .SetShapeFn(shape_inference::DepthwiseConv2DNativeShape)
+    .Doc(R"doc(
+Computes the gradients of depthwise convolution with respect to the rotation.
+)doc");
+
+// --------------------------------------------------------------------------
 // Gradient dw conv2d operators
 // --------------------------------------------------------------------------
 REGISTER_OP("GradDepthwiseConv2dNative")

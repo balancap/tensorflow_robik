@@ -434,7 +434,7 @@ class HexRotDepthwiseConv2dNativeBackpropRotationOp : public OpKernel {
 
     Tensor* rot_backprop = nullptr;
     OP_REQUIRES_OK(context, context->forward_input_or_allocate_output(
-                                {0}, 0, rot_shape, &rot_backprop));
+                                {2}, 0, rot_shape, &rot_backprop));
     auto out_backprop_ptr = out_backprop.template flat<T>().data();
     auto input_ptr = input.template flat<T>().data();
     auto filter_ptr = filter.template flat<T>().data();
