@@ -80,7 +80,7 @@ struct LaunchHexRotDepthwiseConvBackpropFilterOp {
 template <typename Device, typename T>
 struct LaunchHexRotDepthwiseConvBackpropRotationOp {
   void operator()(OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* out_backprop, const T* input, const T* filter, T* rot_backprop,
+                  const T* out_backprop, const T* input, const T* filter, const T* rotation, T* rot_backprop,
                   TensorFormat data_format);
 };
 
@@ -106,7 +106,7 @@ struct LaunchHexRotDepthwiseConvBackpropFilterOp<Eigen::GpuDevice, T> {
 template <typename T>
 struct LaunchHexRotDepthwiseConvBackpropRotationOp<Eigen::GpuDevice, T> {
   void operator()(class OpKernelContext* ctx, const HexRotDepthwiseArgs& args,
-                  const T* out_backprop, const T* input, const T* filter, T* rot_backprop,
+                  const T* out_backprop, const T* input, const T* filter, const T* rotation, T* rot_backprop,
                   TensorFormat data_format);
 };
 

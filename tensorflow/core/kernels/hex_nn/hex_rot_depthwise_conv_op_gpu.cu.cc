@@ -155,9 +155,9 @@ __global__ void __launch_bounds__(1024, 2)
         int f_idx = 0;
         UNROLL for (int r = 0 ; r <= radius ; ++r) {
           // Rotation offsets.
-          const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+          const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
           const int rot_upper = rot_lower + 1;
-          const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+          const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
 
           UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
             // Input coordinates.
@@ -196,9 +196,9 @@ __global__ void __launch_bounds__(1024, 2)
         int f_idx = 0;
         UNROLL for (int r = 0 ; r <= radius ; ++r) {
           // Rotation offsets.
-          const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+          const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
           const int rot_upper = rot_lower + 1;
-          const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+          const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
 
           UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
             // Input coordinates.
@@ -329,9 +329,9 @@ __global__ void __launch_bounds__(640, 2)
             T rot_angle = ldg(rotation + rot_offset);
 
             // Rotation left and right offsets.
-            const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+            const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
             const int rot_upper = rot_lower + 1;
-            const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+            const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
 
             // Offset the filter with the angle? 0 simple case...
             if (f_idx == 0) {
@@ -375,9 +375,9 @@ __global__ void __launch_bounds__(640, 2)
               const int rot_offset = input_offset;
               T rot_angle = ldg(rotation + rot_offset);
               // Rotation left and right offsets.
-              const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+              const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
               const int rot_upper = rot_lower + 1;
-              const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+              const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
 
               // Offset the filter with the angle? 0 simple case...
               if (f_idx == 0) {
@@ -494,10 +494,10 @@ __global__ void __launch_bounds__(640, 2)
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
           // Rotation upper offset: s.t. ceil(i1+r) = j
-          const int rot_upper = int(floorf(idx - rot_offset * NUM_ELEMENTS_RADIUS[r]) + NUM_ELEMENTS_RADIUS[r])  % NUM_ELEMENTS_RADIUS[r];
+          const int rot_upper = int(floorf(idx - rot_angle * NUM_ELEMENTS_RADIUS[r]) + NUM_ELEMENTS_RADIUS[r])  % NUM_ELEMENTS_RADIUS[r];
           // Rotation lower offset: s.t. floor(i0+r) = j
           const int rot_lower = (rot_upper + 1) % NUM_ELEMENTS_RADIUS[r];
-          const T rot_alpha = 1 + floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]) - rot_offset * NUM_ELEMENTS_RADIUS[r];
+          const T rot_alpha = 1 + floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]) - rot_angle * NUM_ELEMENTS_RADIUS[r];
           const int f_idx_lower =
             NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
           const int f_idx_upper =
@@ -528,10 +528,10 @@ __global__ void __launch_bounds__(640, 2)
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
           // Rotation upper offset: s.t. ceil(i1+r) = j
-          const int rot_upper = int(floorf(idx - rot_offset * NUM_ELEMENTS_RADIUS[r]) + NUM_ELEMENTS_RADIUS[r])  % NUM_ELEMENTS_RADIUS[r];
+          const int rot_upper = int(floorf(idx - rot_angle * NUM_ELEMENTS_RADIUS[r]) + NUM_ELEMENTS_RADIUS[r])  % NUM_ELEMENTS_RADIUS[r];
           // Rotation lower offset: s.t. floor(i0+r) = j
           const int rot_lower = (rot_upper + 1) % NUM_ELEMENTS_RADIUS[r];
-          const T rot_alpha = 1 + floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]) - rot_offset * NUM_ELEMENTS_RADIUS[r];
+          const T rot_alpha = 1 + floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]) - rot_angle * NUM_ELEMENTS_RADIUS[r];
           const int f_idx_lower =
             NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
           const int f_idx_upper =
@@ -581,6 +581,7 @@ __global__ void __launch_bounds__(640, 2)
                                                     const T* out_backprop,
                                                     const T* input,
                                                     const T* filter,
+                                                    const T* rotation,
                                                     T* rot_backprop,
                                                     int num_rot_backprop) {
   const int in_rows = args.in_rows;
@@ -630,21 +631,63 @@ __global__ void __launch_bounds__(640, 2)
 
     T sum = static_cast<T>(0);
     const int input_offset_temp = in_rows * OB;
+    // Rotation angle.
+    const int rot_offset =
+        in_d + in_depth * (input_col_center + in_cols * (input_row_center + input_offset_temp));
+    T rot_angle = ldg(rotation + rot_offset);
+    // T rot_angle = 0;
 
     // Full implementation only for stride == 1. TODO: merge everything.
     if (stride == 1) {
+      // Backprop value at position y.
+      const int out_backprop_offset =
+          in_d + in_depth * (input_col_center + in_cols * (input_row_center + in_rows * OB));
+      const T out_bp = ldg(out_backprop + out_backprop_offset);
+
       if (input_row_start >= 0 && input_col_start >= 0 &&
           input_row_end < in_rows && input_col_end < in_cols) {
 
         // Loop on filter radius.
         int f_idx = 0;
         UNROLL for (int r = 0 ; r <= radius ; ++r) {
+          // Rotation offsets.
+          const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
+          const int rot_upper = rot_lower + 1;
+          const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
+
           UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
+            // Input coordinates.
+            const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
+            const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
+            const int input_offset =
+                in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
+
+            // // Offset the filter with the angle? 0 simple case...
+            // if (f_idx == 0) {
+            //   const int filter_offset = multiplier + depth_multiplier * in_d;
+            //   sum += ldg(input + input_offset) * ldg(filter + filter_offset);
+            // }
+            // else {
+            //   const int f_idx_left =
+            //     NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
+            //   const int f_idx_right =
+            //     NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_upper) % NUM_ELEMENTS_RADIUS[r]);
+            //   // Complete filter offsets.
+            //   const int filter_offset_left =
+            //       multiplier + depth_multiplier * (in_d + in_depth * f_idx_left);
+            //   const int filter_offset_right =
+            //       multiplier + depth_multiplier * (in_d + in_depth * f_idx_right);
+            //   // Partial sums!
+            //   const T input_val = ldg(input + input_offset);
+            //   sum += input_val * ldg(filter + filter_offset_left) * rot_alpha;
+            //   sum += input_val * ldg(filter + filter_offset_right) * (1 - rot_alpha);
+            // }
+
+
+
             // // Input coordinates.
             // const int in_r = input_row_center + INPUT_DELTA_ROWS[input_row_sign][f_idx];
             // const int in_c = input_col_center + INPUT_DELTA_COLS[input_row_sign][f_idx];
-            // const int input_offset =
-            //     in_d + in_depth * (in_c + in_cols * (in_r + input_offset_temp));
 
             // // Need to calculate w_{-i}^{x+i}...
             // // First get the angle at position x+i.
@@ -652,9 +695,9 @@ __global__ void __launch_bounds__(640, 2)
             // T rot_angle = ldg(rotation + rot_offset);
 
             // // Rotation left and right offsets.
-            // const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+            // const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
             // const int rot_upper = rot_lower + 1;
-            // const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+            // const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
 
             // // Offset the filter with the angle? 0 simple case...
             // if (f_idx == 0) {
@@ -698,9 +741,9 @@ __global__ void __launch_bounds__(640, 2)
             //   const int rot_offset = input_offset;
             //   T rot_angle = ldg(rotation + rot_offset);
             //   // Rotation left and right offsets.
-            //   const int rot_lower = floorf(rot_offset * NUM_ELEMENTS_RADIUS[r]);
+            //   const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
             //   const int rot_upper = rot_lower + 1;
-            //   const T rot_alpha = rot_upper - rot_offset * NUM_ELEMENTS_RADIUS[r];
+            //   const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
 
             //   // Offset the filter with the angle? 0 simple case...
             //   if (f_idx == 0) {
@@ -1007,9 +1050,10 @@ void LaunchHexRotDepthwiseConv2dBackpropRotationGPU(const GpuDevice& d,
                                             const T* out_backprop,
                                             const T* input,
                                             const T* filter,
+                                            const T* rotation,
                                             T* rot_backprop,
                                             TensorFormat data_format) {
-  void (*kernel)(const HexRotDepthwiseArgs, const T*, const T*, const T*, T*, int);
+  void (*kernel)(const HexRotDepthwiseArgs, const T*, const T*, const T*, const T*, T*, int);
   if (data_format == FORMAT_NHWC) {
     kernel = HexRotDepthwiseConv2DBackpropRotationGPUKernelNHWC<
         T, kKnownFilterWidth, kKnownFilterHeight, kKnownDepthMultiplier>;
@@ -1022,7 +1066,7 @@ void LaunchHexRotDepthwiseConv2dBackpropRotationGPU(const GpuDevice& d,
   CudaLaunchConfig config =
       GetCudaLaunchConfig(num_rot_backprop, d, kernel, 0, 0);
   kernel<<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-      args, out_backprop, input, filter, rot_backprop, num_rot_backprop);
+      args, out_backprop, input, filter, rotation, rot_backprop, num_rot_backprop);
 }
 
 template <typename T, int kKnownFilterWidth, int kKnownFilterHeight>
@@ -1031,16 +1075,17 @@ void LaunchHexRotDepthwiseConv2dBackpropRotationGPU(const GpuDevice& d,
                                             const T* out_backprop,
                                             const T* input,
                                             const T* filter,
+                                            const T* rotation,
                                             T* rot_backprop,
                                             TensorFormat data_format) {
   if (args.depth_multiplier == 1) {
     LaunchHexRotDepthwiseConv2dBackpropRotationGPU<T, kKnownFilterWidth,
                                            kKnownFilterHeight, 1>(
-        d, args, out_backprop, input, filter, rot_backprop, data_format);
+        d, args, out_backprop, input, filter, rotation, rot_backprop, data_format);
   } else {
     LaunchHexRotDepthwiseConv2dBackpropRotationGPU<T, kKnownFilterWidth,
                                            kKnownFilterHeight, -1>(
-        d, args, out_backprop, input, filter, rot_backprop, data_format);
+        d, args, out_backprop, input, filter, rotation, rot_backprop, data_format);
   }
 }
 // A simple launch pad to launch the Cuda kernel for depthwise convolution.
@@ -1050,6 +1095,7 @@ void LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, T>::operator()(
     const T* out_backprop,
     const T* input,
     const T* filter,
+    const T* rotation,
     T* rot_backprop,
     TensorFormat data_format) {
 
@@ -1058,15 +1104,15 @@ void LaunchHexRotDepthwiseConvBackpropRotationOp<GPUDevice, T>::operator()(
 
   if (args.filter_rows == 3 && args.filter_cols == 3) {
     LaunchHexRotDepthwiseConv2dBackpropRotationGPU<T, 3, 3>(
-        d, args, out_backprop, input, filter, rot_backprop, data_format);
+        d, args, out_backprop, input, filter, rotation, rot_backprop, data_format);
   }
   else if (args.filter_rows == 5 && args.filter_cols == 5) {
     LaunchHexRotDepthwiseConv2dBackpropRotationGPU<T, 5, 5>(
-        d, args, out_backprop, input, filter, rot_backprop, data_format);
+        d, args, out_backprop, input, filter, rotation, rot_backprop, data_format);
   }
   else {
     LaunchHexRotDepthwiseConv2dBackpropRotationGPU<T, -1, -1>(
-        d, args, out_backprop, input, filter, rot_backprop, data_format);
+        d, args, out_backprop, input, filter, rotation, rot_backprop, data_format);
   }
   OP_REQUIRES(ctx, stream->ok(),
               errors::Internal("Launch of gpu kernel for "

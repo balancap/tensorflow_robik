@@ -412,23 +412,24 @@ class HexRotDepthwiseConv2dNativeBackpropRotationOp : public OpKernel {
   void Compute(OpKernelContext* context) override {
     const Tensor& input = context->input(0);
     const Tensor& filter = context->input(1);
-    const Tensor& rot_sizes = context->input(2);
+    const Tensor& rotation = context->input(2);
 
-    OP_REQUIRES(
-        context, TensorShapeUtils::IsVector(rot_sizes.shape()),
-        errors::InvalidArgument(
-            "Conv2dBackpropRotation: rot_sizes input must be 1-dim, not ",
-            rot_sizes.dims()));
-    TensorShape rot_shape;
-    const int32* rot_sizes_data = rot_sizes.template flat<int32>().data();
-    for (int i = 0; i < rot_sizes.NumElements(); ++i) {
-      OP_REQUIRES(context, rot_sizes_data[i] >= 0,
-                  errors::InvalidArgument("Dimension ", i,
-                                          " of rot_sizes must be >= 0"));
-      rot_shape.AddDim(rot_sizes_data[i]);
-    }
+    // OP_REQUIRES(
+    //     context, TensorShapeUtils::IsVector(rot_sizes.shape()),
+    //     errors::InvalidArgument(
+    //         "Conv2dBackpropRotation: rot_sizes input must be 1-dim, not ",
+    //         rot_sizes.dims()));
+    // TensorShape rot_shape;
+    // const int32* rot_sizes_data = rot_sizes.template flat<int32>().data();
+    // for (int i = 0; i < rot_sizes.NumElements(); ++i) {
+    //   OP_REQUIRES(context, rot_sizes_data[i] >= 0,
+    //               errors::InvalidArgument("Dimension ", i,
+    //                                       " of rot_sizes must be >= 0"));
+    //   rot_shape.AddDim(rot_sizes_data[i]);
+    // }
     const TensorShape& input_shape = input.shape();
     const TensorShape& filter_shape = filter.shape();
+    const TensorShape& rot_shape = rotation.shape();
     EXTRACT_AND_VERIFY_DIMENSIONS("HexRotDepthwiseConv2dBackpropRotation");
 
     Tensor* rot_backprop = nullptr;
@@ -437,6 +438,7 @@ class HexRotDepthwiseConv2dNativeBackpropRotationOp : public OpKernel {
     auto out_backprop_ptr = out_backprop.template flat<T>().data();
     auto input_ptr = input.template flat<T>().data();
     auto filter_ptr = filter.template flat<T>().data();
+    auto rotation_ptr = rotation.template flat<T>().data();
     auto rot_backprop_ptr = rot_backprop->template flat<T>().data();
 
     // If there is nothing to compute, return.
@@ -444,7 +446,7 @@ class HexRotDepthwiseConv2dNativeBackpropRotationOp : public OpKernel {
       return;
     }
     LaunchHexRotDepthwiseConvBackpropRotationOp<Device, T>()(
-        context, args, out_backprop_ptr, input_ptr, filter_ptr, rot_backprop_ptr,
+        context, args, out_backprop_ptr, input_ptr, filter_ptr, rotation_ptr, rot_backprop_ptr,
         data_format_);
   }
 
