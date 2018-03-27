@@ -354,7 +354,7 @@ __global__ void __launch_bounds__(640, 2)
               // Partial sums!
               const T output_val = ldg(out_backprop + input_offset);
               sum += output_val * ldg(filter + filter_offset_left) * rot_alpha;
-              sum += output_val * ldg(filter + filter_offset_right) * (1 - rot_alpha);
+              sum += output_val * ldg(filter + filter_offset_right) * (1. - rot_alpha);
             }
             // Update filter index.
             ++f_idx;

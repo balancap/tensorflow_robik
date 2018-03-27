@@ -52,7 +52,7 @@ typedef Eigen::GpuDevice GPUDevice;
 // Common code between the two backward pass kernels: verifies that the
 // dimensions all match and extract the padded rows and columns.
 #define EXTRACT_AND_VERIFY_DIMENSIONS(label)                                   \
-  const Tensor& out_backprop = context->input(2);                              \
+  const Tensor& out_backprop = context->input(3);                              \
   OP_REQUIRES(                                                                 \
       context, input_shape.dims() == 4,                                        \
       errors::InvalidArgument(label, ": input must be 4-dimensional"));        \
@@ -199,6 +199,7 @@ class HexRotDepthwiseConv2dNativeBackpropInputOp : public OpKernel {
     const Tensor& input_sizes = context->input(0);
     const Tensor& filter = context->input(1);
     const Tensor& rotation = context->input(2);
+    // const Tensor& out_backprop = context->input(3);
 
     OP_REQUIRES(
         context, TensorShapeUtils::IsVector(input_sizes.shape()),
@@ -257,7 +258,7 @@ REGISTER_KERNEL_BUILDER(
 #endif  // GOOGLE_CUDA
 
 // -------------------------------------------------------------------------- //
-// Backward Input conv2d kernel.
+// Backward Filter conv2d kernel.
 // -------------------------------------------------------------------------- //
 template <typename Device, typename T>
 struct LaunchHexRotDepthwiseConvBackpropFilterOp;
@@ -463,14 +464,12 @@ class HexRotDepthwiseConv2dNativeBackpropRotationOp : public OpKernel {
 REGISTER_KERNEL_BUILDER(
     Name("HexRotDepthwiseConv2dNativeBackpropRotation")
         .Device(DEVICE_GPU)
-        .TypeConstraint<float>("T")
-        .HostMemory("input_sizes"),
+        .TypeConstraint<float>("T"),
     HexRotDepthwiseConv2dNativeBackpropRotationOp<GPUDevice, float>);
 REGISTER_KERNEL_BUILDER(
     Name("HexRotDepthwiseConv2dNativeBackpropRotation")
         .Device(DEVICE_GPU)
-        .TypeConstraint<double>("T")
-        .HostMemory("input_sizes"),
+        .TypeConstraint<double>("T"),
     HexRotDepthwiseConv2dNativeBackpropRotationOp<GPUDevice, double>);
 #endif  // GOOGLE_CUDA
 
