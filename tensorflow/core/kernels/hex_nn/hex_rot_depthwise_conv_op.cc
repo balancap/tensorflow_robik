@@ -238,9 +238,9 @@ class HexRotDepthwiseConv2dNativeOp : public BinaryOp<T> {
 #endif
 
 #if GOOGLE_CUDA
-REGISTER_KERNEL_BUILDER(
-    Name("HexRotDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
-    HexRotDepthwiseConv2dNativeOp<GPUDevice, Eigen::half>);
+// REGISTER_KERNEL_BUILDER(
+//     Name("HexRotDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<Eigen::half>("T"),
+//     HexRotDepthwiseConv2dNativeOp<GPUDevice, Eigen::half>);
 REGISTER_KERNEL_BUILDER(
     Name("HexRotDepthwiseConv2dNative").Device(DEVICE_GPU).TypeConstraint<float>("T"),
     HexRotDepthwiseConv2dNativeOp<GPUDevice, float>);
