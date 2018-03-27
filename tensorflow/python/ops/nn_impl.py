@@ -1433,7 +1433,7 @@ def hex_rot_depthwise_conv2d(input,
   with ops.name_scope(name, "hex_rot_depthwise", [input, filter, rotation]) as name:
     input = ops.convert_to_tensor(input, name="tensor_in")
     filter = ops.convert_to_tensor(filter, name="filter_in")
-    rotation = ops.convert_to_tensor(rotation, name="filter_in")
+    rotation = ops.convert_to_tensor(rotation, name="rotation_in")
     if rate is None:
       rate = [1, 1]
 

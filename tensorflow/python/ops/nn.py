@@ -106,6 +106,12 @@ See the @{$python/nn} guide.
 @@hex_depthwise_conv2d_native
 @@hex_depthwise_conv2d_native_backprop_filter
 @@hex_depthwise_conv2d_native_backprop_input
+
+@@hex_rot_depthwise_conv2d
+@@hex_rot_depthwise_conv2d_native
+@@hex_rot_depthwise_conv2d_native_backprop_input
+@@hex_rot_depthwise_conv2d_native_backprop_filter
+@@hex_rot_depthwise_conv2d_native_backprop_rotation
 """
 from __future__ import absolute_import
 from __future__ import division

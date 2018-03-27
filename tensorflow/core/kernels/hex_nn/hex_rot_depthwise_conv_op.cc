@@ -71,10 +71,10 @@ extern template class LaunchConv2DOp<GPUDevice, float>;
 #endif
 
 template <typename Device, typename T>
-class HexRotDepthwiseConv2dNativeOp : public BinaryOp<T> {
+class HexRotDepthwiseConv2dNativeOp : public OpKernel {
  public:
   explicit HexRotDepthwiseConv2dNativeOp(OpKernelConstruction* context)
-      : BinaryOp<T>(context) {
+      : OpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("strides", &strides_));
     string data_format;
     OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format));
