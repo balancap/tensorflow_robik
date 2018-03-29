@@ -487,7 +487,8 @@ __global__ void __launch_bounds__(640, 2)
     const T out_bp = ldg(out_backprop + out_backprop_offset);
     // Rotation input at position y.
     const int rot_offset = out_backprop_offset;
-    const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
+    const T rot_angle_pos = ldg(rotation + rot_offset) + ANGLE_OFFSET;
+    const T rot_angle_neg = ldg(rotation + rot_offset) - ANGLE_OFFSET;
 
     if (in_r_start >= 0 && in_c_start >= 0 && in_r_end < in_rows &&
         in_c_end < in_cols) {
@@ -496,31 +497,42 @@ __global__ void __launch_bounds__(640, 2)
       int f_idx = 0;
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
-          // Rotation upper offset: s.t. ceil(i1+r) = j
-          const int rot_upper = int(floorf(idx - rot_angle * NUM_ELEMENTS_RADIUS[r]) + NUM_ELEMENTS_RADIUS[r])  % NUM_ELEMENTS_RADIUS[r];
-          // Rotation lower offset: s.t. floor(i0+r) = j
-          const int rot_lower = (rot_upper + 1) % NUM_ELEMENTS_RADIUS[r];
-          const T rot_alpha = 1 + floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]) - rot_angle * NUM_ELEMENTS_RADIUS[r];
-          const int f_idx_lower =
-            NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
-          const int f_idx_upper =
-            NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_upper) % NUM_ELEMENTS_RADIUS[r]);
+          // Radius zero special case.
+          if (f_idx == 0) {
+            const int input_offset =
+                in_d + in_depth * (input_col_center + in_cols *
+                (input_row_center + in_rows * b));
+            const T partial_sum = ldg(input + input_offset) * out_bp;
+            T* addr = filter_backprop + (dm + depth_multiplier * (in_d + in_depth * f_idx));
+            CudaAtomicAdd(addr, partial_sum);
+          }
+          else {
+            // Rotation upper offset: s.t. ceil(i1+r) = j
+            const int rot_lower = int(floorf(rot_angle_neg * NUM_ELEMENTS_RADIUS[r]));
+            const T rot_alpha = 1 + floorf(rot_angle_pos * NUM_ELEMENTS_RADIUS[r]) - rot_angle_pos * NUM_ELEMENTS_RADIUS[r];
 
-          // Input coordinates.
-          const int in_rl = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_lower];
-          const int in_cl = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_lower];
-          const int input_offset_lower =
-              in_d + in_depth * (in_cl + in_cols * (in_rl + in_rows * b));
-          const int in_ru = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_upper];
-          const int in_cu = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_upper];
-          const int input_offset_upper =
-              in_d + in_depth * (in_cu + in_cols * (in_ru + in_rows * b));
+            // j - floor(r)
+            const int f_idx_lower =
+              NUM_ELEMENTS_RADIUS_CUM[r] + ((idx - rot_lower) % NUM_ELEMENTS_RADIUS[r]);
+            const int f_idx_upper =
+              NUM_ELEMENTS_RADIUS_CUM[r] + ((idx - rot_lower + NUM_ELEMENTS_RADIUS[r] - 1 ) % NUM_ELEMENTS_RADIUS[r]);
 
-          T partial_sum = ldg(input + input_offset_lower) * out_bp * rot_alpha +
-            ldg(input + input_offset_upper) * out_bp * (1 - rot_alpha);
+            // Input coordinates.
+            const int in_rl = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_lower];
+            const int in_cl = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_lower];
+            const int input_offset_lower =
+                in_d + in_depth * (in_cl + in_cols * (in_rl + in_rows * b));
+            const int in_ru = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_upper];
+            const int in_cu = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_upper];
+            const int input_offset_upper =
+                in_d + in_depth * (in_cu + in_cols * (in_ru + in_rows * b));
 
-          T* addr = filter_backprop + (dm + depth_multiplier * (in_d + in_depth * f_idx));
-          CudaAtomicAdd(addr, partial_sum);
+            T partial_sum = ldg(input + input_offset_lower) * out_bp * rot_alpha +
+              ldg(input + input_offset_upper) * out_bp * (1 - rot_alpha);
+
+            T* addr = filter_backprop + (dm + depth_multiplier * (in_d + in_depth * f_idx));
+            CudaAtomicAdd(addr, partial_sum);
+          }
           // Update filter index.
           ++f_idx;
         }
@@ -530,36 +542,47 @@ __global__ void __launch_bounds__(640, 2)
       int f_idx = 0;
       UNROLL for (int r = 0 ; r <= radius ; ++r) {
         UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
-          // Rotation upper offset: s.t. ceil(i1+r) = j
-          const int rot_upper = int(floorf(idx - rot_angle * NUM_ELEMENTS_RADIUS[r]) + NUM_ELEMENTS_RADIUS[r])  % NUM_ELEMENTS_RADIUS[r];
-          // Rotation lower offset: s.t. floor(i0+r) = j
-          const int rot_lower = (rot_upper + 1) % NUM_ELEMENTS_RADIUS[r];
-          const T rot_alpha = 1 + floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]) - rot_angle * NUM_ELEMENTS_RADIUS[r];
-          const int f_idx_lower =
-            NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_lower) % NUM_ELEMENTS_RADIUS[r]);
-          const int f_idx_upper =
-            NUM_ELEMENTS_RADIUS_CUM[r] + ((idx + rot_upper) % NUM_ELEMENTS_RADIUS[r]);
-
-          // Input coordinates.
-          const int in_rl = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_lower];
-          const int in_cl = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_lower];
-          const int input_offset_lower =
-              in_d + in_depth * (in_cl + in_cols * (in_rl + in_rows * b));
-          const int in_ru = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_upper];
-          const int in_cu = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_upper];
-          const int input_offset_upper =
-              in_d + in_depth * (in_cu + in_cols * (in_ru + in_rows * b));
-
-          T* addr = filter_backprop +
-              (dm + depth_multiplier * (in_d + in_depth * f_idx));
-
-          if (in_rl >= 0 && in_rl < in_rows && in_cl >= 0 && in_cl < in_cols) {
-            T partial_sum = ldg(input + input_offset_lower) * out_bp;
+          // Radius zero special case.
+          if (f_idx == 0) {
+            const int input_offset =
+                in_d + in_depth * (input_col_center + in_cols *
+                (input_row_center + in_rows * b));
+            const T partial_sum = ldg(input + input_offset) * out_bp;
+            T* addr = filter_backprop + (dm + depth_multiplier * (in_d + in_depth * f_idx));
             CudaAtomicAdd(addr, partial_sum);
           }
-          if (in_ru >= 0 && in_ru < in_rows && in_cu >= 0 && in_cu < in_cols) {
-            T partial_sum = ldg(input + input_offset_upper) * out_bp;
-            CudaAtomicAdd(addr, partial_sum);
+          else {
+            // Rotation upper offset: s.t. ceil(i1+r) = j
+            const int rot_lower = int(floorf(rot_angle_neg * NUM_ELEMENTS_RADIUS[r]));
+            const T rot_alpha = 1 + floorf(rot_angle_pos * NUM_ELEMENTS_RADIUS[r]) - rot_angle_pos * NUM_ELEMENTS_RADIUS[r];
+
+            // j - floor(r)
+            const int f_idx_lower =
+              NUM_ELEMENTS_RADIUS_CUM[r] + ((idx - rot_lower) % NUM_ELEMENTS_RADIUS[r]);
+            const int f_idx_upper =
+              NUM_ELEMENTS_RADIUS_CUM[r] + ((idx - rot_lower + NUM_ELEMENTS_RADIUS[r] - 1 ) % NUM_ELEMENTS_RADIUS[r]);
+
+            // Input coordinates.
+            const int in_rl = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_lower];
+            const int in_cl = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_lower];
+            const int input_offset_lower =
+                in_d + in_depth * (in_cl + in_cols * (in_rl + in_rows * b));
+            const int in_ru = input_row_center + INPUT_DELTA_ROWS[out_row_sign][f_idx_upper];
+            const int in_cu = input_col_center + INPUT_DELTA_COLS[out_row_sign][f_idx_upper];
+            const int input_offset_upper =
+                in_d + in_depth * (in_cu + in_cols * (in_ru + in_rows * b));
+
+            T* addr = filter_backprop +
+                (dm + depth_multiplier * (in_d + in_depth * f_idx));
+
+            if (in_rl >= 0 && in_rl < in_rows && in_cl >= 0 && in_cl < in_cols) {
+              T partial_sum = ldg(input + input_offset_lower) * out_bp * rot_alpha;
+              CudaAtomicAdd(addr, partial_sum);
+            }
+            if (in_ru >= 0 && in_ru < in_rows && in_cu >= 0 && in_cu < in_cols) {
+              T partial_sum = ldg(input + input_offset_upper) * out_bp * (1 - rot_alpha);
+              CudaAtomicAdd(addr, partial_sum);
+            }
           }
           // Update filter index.
           ++f_idx;
