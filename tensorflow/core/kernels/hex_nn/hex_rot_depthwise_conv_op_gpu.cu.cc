@@ -157,10 +157,11 @@ __global__ void __launch_bounds__(1024, 2)
         // Loop on filter radius.
         int f_idx = 0;
         UNROLL for (int r = 0 ; r <= radius ; ++r) {
+          const T rot_scaled = rot_angle * NUM_ELEMENTS_RADIUS[r];
           // Rotation offsets.
-          const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
+          const int rot_lower = floorf(rot_scaled);
           const int rot_upper = rot_lower + 1;
-          const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
+          const T rot_alpha = rot_upper - rot_scaled;
 
           UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
             // Input coordinates.
@@ -198,10 +199,11 @@ __global__ void __launch_bounds__(1024, 2)
         // Loop on filter radius.
         int f_idx = 0;
         UNROLL for (int r = 0 ; r <= radius ; ++r) {
+          const T rot_scaled = rot_angle * NUM_ELEMENTS_RADIUS[r];
           // Rotation offsets.
-          const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
+          const int rot_lower = floorf(rot_scaled);
           const int rot_upper = rot_lower + 1;
-          const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
+          const T rot_alpha = rot_upper - rot_scaled;
 
           UNROLL for (int idx = 0 ; idx < NUM_ELEMENTS_RADIUS[r] ; ++idx) {
             // Input coordinates.
@@ -332,9 +334,10 @@ __global__ void __launch_bounds__(640, 2)
             const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
 
             // Rotation left and right offsets.
-            const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
+            const T rot_scaled = rot_angle * NUM_ELEMENTS_RADIUS[r];
+            const int rot_lower = floorf(rot_scaled);
             const int rot_upper = rot_lower + 1;
-            const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
+            const T rot_alpha = rot_upper - rot_scaled;
 
             // Offset the filter with the angle? 0 simple case...
             if (f_idx == 0) {
@@ -378,9 +381,10 @@ __global__ void __launch_bounds__(640, 2)
               const int rot_offset = input_offset;
               const T rot_angle = ldg(rotation + rot_offset) + ANGLE_OFFSET;
               // Rotation left and right offsets.
-              const int rot_lower = floorf(rot_angle * NUM_ELEMENTS_RADIUS[r]);
+              const T rot_scaled = rot_angle * NUM_ELEMENTS_RADIUS[r];
+              const int rot_lower = floorf(rot_scaled);
               const int rot_upper = rot_lower + 1;
-              const T rot_alpha = rot_upper - rot_angle * NUM_ELEMENTS_RADIUS[r];
+              const T rot_alpha = rot_upper - rot_scaled;
 
               // Offset the filter with the angle? 0 simple case...
               if (f_idx == 0) {
@@ -487,8 +491,9 @@ __global__ void __launch_bounds__(640, 2)
     const T out_bp = ldg(out_backprop + out_backprop_offset);
     // Rotation input at position y.
     const int rot_offset = out_backprop_offset;
-    const T rot_angle_pos = ldg(rotation + rot_offset) + ANGLE_OFFSET;
-    const T rot_angle_neg = ldg(rotation + rot_offset) - ANGLE_OFFSET;
+    const T rot_angle = ldg(rotation + rot_offset);
+    const T rot_angle_pos = rot_angle + ANGLE_OFFSET;
+    const T rot_angle_neg = rot_angle - ANGLE_OFFSET;
 
     if (in_r_start >= 0 && in_c_start >= 0 && in_r_end < in_rows &&
         in_c_end < in_cols) {
@@ -701,9 +706,9 @@ __global__ void __launch_bounds__(640, 2)
               const int filter_offset_right =
                   multiplier + depth_multiplier * (in_d + in_depth * f_idx_right);
               // Partial sums!
-              const T input_val = ldg(input + input_offset) * NUM_ELEMENTS_RADIUS[r];
-              sum += input_val * out_bp_val * ldg(filter + filter_offset_right);
-              sum -= input_val * out_bp_val * ldg(filter + filter_offset_left);
+              const T val = ldg(input + input_offset) * NUM_ELEMENTS_RADIUS[r] * out_bp_val;
+              sum += val * ldg(filter + filter_offset_right);
+              sum -= val * ldg(filter + filter_offset_left);
             }
             // Update filter index.
             ++f_idx;
